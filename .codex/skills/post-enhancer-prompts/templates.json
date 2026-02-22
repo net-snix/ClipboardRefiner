@@ -1,0 +1,26 @@
+[
+  {
+    "id": "thread-crafter",
+    "name": "Thread Crafter",
+    "summary": "Turn one thought into a high-signal X thread.",
+    "promptSuffix": "Skill: Thread Crafter\n- Prefer 5-9 short posts with one idea per post.\n- Add one concrete example.\n- Keep each post standalone and readable.\n- End final post with one natural discussion prompt."
+  },
+  {
+    "id": "launch-writer",
+    "name": "Launch Writer",
+    "summary": "Product launch copy with clear value and CTA.",
+    "promptSuffix": "Skill: Launch Writer\n- Lead with what changed and who benefits.\n- Mention one measurable outcome when possible.\n- Keep hype low, proof high.\n- End with one clear CTA."
+  },
+  {
+    "id": "private-notes",
+    "name": "Private Notes",
+    "summary": "Conservative rewrites for sensitive/internal text.",
+    "promptSuffix": "Skill: Private Notes\n- Preserve exact intent and qualifiers.\n- Avoid embellishment and speculation.\n- Keep names/identifiers unchanged.\n- Prefer concise and neutral tone."
+  },
+  {
+    "id": "debug-brief",
+    "name": "Debug Brief",
+    "summary": "Convert issue dumps into actionable status updates.",
+    "promptSuffix": "Skill: Debug Brief\n- Keep chronology explicit.\n- Split into: symptoms, findings, next action.\n- Highlight blockers and missing data.\n- Keep it scannable for async teams."
+  }
+]
