@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -29,6 +30,7 @@ struct SettingsView: View {
 
 struct ProviderSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
+    @ObservedObject private var engine = RewriteEngine.shared
     @State private var apiKeys: [LLMProviderType: String] = [:]
     @State private var visibleKeyProviders = Set<LLMProviderType>()
     @State private var saveStatusByProvider: [LLMProviderType: SaveStatus] = [:]
@@ -58,17 +60,11 @@ struct ProviderSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Text("Each provider card contains its API key and defaults.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-
                 ForEach(Self.cloudProviders, id: \.self) { provider in
                     apiKeyCard(for: provider)
                 }
             } header: {
                 Text("API Keys")
-            } footer: {
-                Text("Local models run on-device and do not require API keys.")
             }
 
             Section("Local Models") {
@@ -96,10 +92,12 @@ struct ProviderSettingsView: View {
     private var localConfigurationSection: some View {
         Group {
             if settings.localModelPaths.isEmpty {
-                Text("No local models configured yet. Add one below.")
+                Text("No local models yet.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            } else {
+            }
+
+            if !settings.localModelPaths.isEmpty {
                 Picker("Selected model", selection: $settings.selectedModel) {
                     ForEach(settings.localModelPaths) { entry in
                         Text(entry.modelName).tag(entry.modelName)
@@ -108,66 +106,46 @@ struct ProviderSettingsView: View {
                 .onChange(of: settings.selectedModel) { _, _ in
                     RewriteEngine.shared.updateProvider()
                 }
+
+                if settings.selectedLocalModelPath != nil {
+                    HStack {
+                        Text(engine.isLocalModelLoaded ? "Model loaded in memory" : "Model not loaded")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button(localModelActionTitle) {
+                            toggleLocalModelLoadStateFromSettings()
+                        }
+                        .disabled(engine.isUnloadingLocalModel || engine.isLoadingLocalModel || engine.isProcessing)
+                    }
+                }
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("Local model paths")
-                    .font(.headline)
+                Text("Add model")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
 
-                HStack {
-                    TextField("Model name", text: $localModelName)
+                HStack(spacing: 8) {
+                    TextField("", text: $localModelName, prompt: Text("Model name"))
+                        .frame(width: 220)
                         .textFieldStyle(.roundedBorder)
 
-                    TextField("Model folder path", text: $localModelPath)
+                    TextField("", text: $localModelPath, prompt: Text("Model folder path"))
                         .textFieldStyle(.roundedBorder)
+                        .frame(minWidth: 260, maxWidth: .infinity)
+                        .layoutPriority(1)
 
-                    Button("Add path") {
+                    Button("Choose…") {
+                        chooseLocalModelPath()
+                    }
+                    .frame(width: 100)
+
+                    Button("Add") {
                         saveLocalModelPath()
                     }
                     .disabled(!canAddLocalModelPath)
-                }
-
-                if settings.localModelPaths.isEmpty {
-                    Text("No model paths added yet. Paste a model folder path and save it.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(settings.localModelPaths) { entry in
-                            HStack(alignment: .top, spacing: 8) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(entry.modelName)
-                                        .font(.system(size: 13, weight: .semibold))
-                                    Text(entry.path)
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(2)
-                                        .truncationMode(.middle)
-                                        .textSelection(.enabled)
-                                }
-
-                                Spacer(minLength: 0)
-
-                                Button("Remove", role: .destructive) {
-                                    settings.removeLocalModelPath(id: entry.id)
-                                    RewriteEngine.shared.updateProvider()
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if let selectedPath = settings.selectedLocalModelPath {
-                    Text("Active path: \(selectedPath)")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
-                } else {
-                    Text("Add a path for the selected local model before running rewrites.")
-                        .font(.footnote)
-                        .foregroundStyle(.orange)
+                    .frame(width: 72)
                 }
 
                 if let localStatusText {
@@ -177,9 +155,49 @@ struct ProviderSettingsView: View {
                 }
             }
 
-            Text("Local provider uses your configured model folder paths.")
-                .foregroundStyle(.secondary)
-                .font(.footnote)
+            if !settings.localModelPaths.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Saved models")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+
+                    ForEach(settings.localModelPaths) { entry in
+                        HStack(alignment: .top, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 6) {
+                                    Text(entry.modelName)
+                                        .font(.system(size: 13, weight: .semibold))
+                                    if isActiveLocalModel(entry) {
+                                        Text("Active")
+                                            .font(.caption2)
+                                            .foregroundStyle(.green)
+                                    }
+                                }
+
+                                Text(entry.path)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                                    .truncationMode(.middle)
+                                    .textSelection(.enabled)
+                            }
+
+                            Spacer(minLength: 0)
+
+                            Button("Use") {
+                                settings.useLocalModelPath(entry)
+                                RewriteEngine.shared.updateProvider()
+                            }
+                            .disabled(isActiveLocalModel(entry))
+
+                            Button("Remove", role: .destructive) {
+                                settings.removeLocalModelPath(id: entry.id)
+                                RewriteEngine.shared.updateProvider()
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -248,20 +266,14 @@ struct ProviderSettingsView: View {
             apiKeyHelpLink(for: provider)
                 .font(.footnote)
 
-            if settings.selectedProvider == provider {
-                providerDefaultsEditor(for: provider)
-            } else {
-                HStack(spacing: 6) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    Text("Defaults are editable when this provider is active.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            providerDefaultsContent(for: provider)
         }
         .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func providerDefaultsContent(for provider: LLMProviderType) -> some View {
+        providerDefaultsEditor(for: provider)
     }
 
     @ViewBuilder
@@ -271,21 +283,52 @@ struct ProviderSettingsView: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
 
-            Picker("Model", selection: $settings.selectedModel) {
+            Picker("Model", selection: modelBinding(for: provider)) {
                 ForEach(provider.availableModels, id: \.self) { model in
                     Text(SettingsManager.displayModelName(model, for: provider)).tag(model)
                 }
             }
+            .pickerStyle(.menu)
 
             if provider == .openai,
-               SettingsManager.isOpenAIReasoningModel(settings.selectedModel) {
-                Picker("Reasoning effort", selection: $settings.openAIReasoningEffort) {
+               SettingsManager.isOpenAIReasoningModel(settings.modelDefault(for: provider)) {
+                Picker("Reasoning effort", selection: reasoningEffortBinding(for: provider)) {
                     ForEach(OpenAIReasoningEffort.allCases, id: \.self) { effort in
                         Text(effort.displayName).tag(effort)
                     }
                 }
+                .pickerStyle(.menu)
             }
+
         }
+    }
+
+    private func modelBinding(for provider: LLMProviderType) -> Binding<String> {
+        Binding(
+            get: {
+                settings.modelDefault(for: provider)
+            },
+            set: { newValue in
+                settings.setModelDefault(newValue, for: provider)
+                if settings.selectedProvider == provider {
+                    RewriteEngine.shared.updateProvider()
+                }
+            }
+        )
+    }
+
+    private func reasoningEffortBinding(for provider: LLMProviderType) -> Binding<OpenAIReasoningEffort> {
+        Binding(
+            get: {
+                settings.openAIReasoningEffort
+            },
+            set: { newValue in
+                settings.openAIReasoningEffort = newValue
+                if settings.selectedProvider == provider {
+                    RewriteEngine.shared.updateProvider()
+                }
+            }
+        )
     }
 
     @ViewBuilder
@@ -398,8 +441,83 @@ struct ProviderSettingsView: View {
         settings.selectedModel = modelName
         localModelName = ""
         localModelPath = ""
-        localStatusText = "Saved path for \(modelName)."
+        localStatusText = "Saved."
         RewriteEngine.shared.updateProvider()
+        clearLocalStatusAfterDelay()
+    }
+
+    private func chooseLocalModelPath() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Local Model Folder"
+        panel.prompt = "Choose"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.showsHiddenFiles = true
+
+        let trimmedPath = localModelPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedPath.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: trimmedPath)
+        }
+
+        guard panel.runModal() == .OK, let selectedURL = panel.url else { return }
+
+        localModelPath = selectedURL.path
+        if localModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            localModelName = selectedURL.lastPathComponent
+        }
+        localStatusText = nil
+    }
+
+    private func isActiveLocalModel(_ entry: LocalModelPathEntry) -> Bool {
+        entry.modelName.caseInsensitiveCompare(settings.selectedModel) == .orderedSame
+    }
+
+    private func clearLocalStatusAfterDelay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            localStatusText = nil
+        }
+    }
+
+    private func unloadLocalModelFromSettings() {
+        localStatusText = nil
+        engine.unloadLocalModel { result in
+            switch result {
+            case .success:
+                localStatusText = "Unloaded."
+                clearLocalStatusAfterDelay()
+            case .failure(let error):
+                localStatusText = error.localizedDescription
+            }
+        }
+    }
+
+    private var localModelActionTitle: String {
+        if engine.isUnloadingLocalModel { return "Unloading…" }
+        if engine.isLoadingLocalModel { return "Loading…" }
+        return engine.isLocalModelLoaded ? "Unload" : "Load"
+    }
+
+    private func toggleLocalModelLoadStateFromSettings() {
+        if engine.isLocalModelLoaded {
+            unloadLocalModelFromSettings()
+        } else {
+            loadLocalModelFromSettings()
+        }
+    }
+
+    private func loadLocalModelFromSettings() {
+        localStatusText = nil
+        engine.loadLocalModel { result in
+            switch result {
+            case .success:
+                localStatusText = "Loaded."
+                clearLocalStatusAfterDelay()
+            case .failure(let error):
+                localStatusText = error.localizedDescription
+            }
+        }
     }
 }
 

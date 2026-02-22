@@ -90,16 +90,15 @@ import Foundation
             return
         }
 
-        let result = RewriteEngine.shared.rewriteSync(text: text, style: style)
+        RewriteEngine.shared.rewriteForService(text: text, style: style) { result in
+            switch result {
+            case .success(let rewrittenText):
+                pboard.clearContents()
+                pboard.setString(rewrittenText, forType: .string)
 
-        switch result {
-        case .success(let rewrittenText):
-            pboard.clearContents()
-            pboard.setString(rewrittenText, forType: .string)
-
-        case .failure(let llmError):
-            error.pointee = llmError.localizedDescription as NSString
-            AppLogger.shared.error("Quick rewrite failed: \(llmError.localizedDescription)")
+            case .failure(let llmError):
+                AppLogger.shared.error("Quick rewrite failed: \(llmError.localizedDescription)")
+            }
         }
     }
 }

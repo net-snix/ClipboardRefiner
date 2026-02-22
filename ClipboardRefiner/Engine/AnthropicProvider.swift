@@ -9,7 +9,7 @@ final class AnthropicProvider: LLMProvider {
     private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
     private let apiVersion = "2025-01-01"
 
-    init(apiKey: String, model: String = "claude-4.5-sonnet") {
+    init(apiKey: String, model: String = "claude-sonnet-4-6") {
         self.apiKey = apiKey
         self.model = model
     }
@@ -73,16 +73,22 @@ final class AnthropicProvider: LLMProvider {
         ProviderHTTP.perform(request: request, cancellable: cancellable) { result in
             switch result {
             case .failure(let error):
-                completion(.failure(error))
+                ProviderHTTP.deliverOnMain {
+                    completion(.failure(error))
+                }
             case .success(let (data, response)):
                 if let error = ProviderHTTP.handleStatus(response, data: data) {
-                    completion(.failure(error))
+                    ProviderHTTP.deliverOnMain {
+                        completion(.failure(error))
+                    }
                     return
                 }
 
                 guard let json = ProviderHTTP.decodeJSON(data),
                       let content = json["content"] as? [[String: Any]] else {
-                    completion(.failure(.invalidResponse))
+                    ProviderHTTP.deliverOnMain {
+                        completion(.failure(.invalidResponse))
+                    }
                     return
                 }
 
@@ -91,13 +97,28 @@ final class AnthropicProvider: LLMProvider {
                     .compactMap { $0["text"] as? String }
                     .joined()
 
-                guard !text.isEmpty else {
-                    completion(.failure(.invalidResponse))
+                if !text.isEmpty {
+                    ProviderHTTP.deliverOnMain {
+                        streamHandler(text)
+                        completion(.success(text))
+                    }
                     return
                 }
 
-                streamHandler(text)
-                completion(.success(text))
+                let stopReason = json["stop_reason"] as? String
+                let mappedError: LLMError
+                switch stopReason {
+                case "refusal":
+                    mappedError = .serverError(400, "Anthropic returned refusal for this request.")
+                case "model_context_window_exceeded":
+                    mappedError = .serverError(400, "Model context window exceeded. Shorten input or attachments.")
+                default:
+                    mappedError = .invalidResponse
+                }
+
+                ProviderHTTP.deliverOnMain {
+                    completion(.failure(mappedError))
+                }
             }
         }
 

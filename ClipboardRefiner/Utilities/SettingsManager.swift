@@ -14,7 +14,7 @@ enum LLMProviderType: String, CaseIterable, Codable {
         case .openai:
             return "gpt-5.2"
         case .anthropic:
-            return "claude-4.5-sonnet"
+            return "claude-sonnet-4-6"
         case .xai:
             return "grok-4-1-fast"
         case .local:
@@ -27,7 +27,7 @@ enum LLMProviderType: String, CaseIterable, Codable {
         case .openai:
             return ["gpt-5.2", "gpt-5.1-2025-11-13"]
         case .anthropic:
-            return ["claude-4.5-sonnet"]
+            return ["claude-sonnet-4-6", "claude-opus-4-6"]
         case .xai:
             return ["grok-4-1-fast", "grok-4-1-fast-reasoning-latest"]
         case .local:
@@ -107,13 +107,23 @@ final class SettingsManager: ObservableObject {
     static let shared = SettingsManager()
 
     private let defaults = UserDefaults.standard
+    private let historyPersistenceQueue = DispatchQueue(
+        label: "com.clipboardrefiner.settings.history.persistence",
+        qos: .utility
+    )
     private var isReconcilingModelSelection = false
     private var hasPendingModelReconciliation = false
     private var pendingModelReconcileReason: ModelReconcileReason?
+    private var pendingHistorySaveWorkItem: DispatchWorkItem?
+    private let apiKeyCacheLock = NSLock()
+    private var apiKeyCache: [LLMProviderType: String?] = [:]
 
     private enum Keys {
         static let provider = "selectedProvider"
         static let model = "selectedModel"
+        static let openAIModel = "openAIModel"
+        static let anthropicModel = "anthropicModel"
+        static let xaiModel = "xaiModel"
         static let localModelPaths = "localModelPaths"
         static let legacyOllamaModel = "ollamaModel"
         static let defaultStyle = "defaultStyle"
@@ -148,6 +158,7 @@ final class SettingsManager: ObservableObject {
     @Published var selectedModel: String {
         didSet {
             defaults.set(selectedModel, forKey: Keys.model)
+            persistModelPreference(selectedModel, for: selectedProvider)
             if !isReconcilingModelSelection {
                 scheduleModelReconciliation(triggeredBy: .selectedModel)
             }
@@ -231,12 +242,17 @@ final class SettingsManager: ObservableObject {
         let storedModel = defaults.string(forKey: Keys.model)
             ?? defaults.string(forKey: Keys.legacyOllamaModel)
 
+        Self.seedCloudModelPreferencesIfNeeded(
+            defaults: defaults,
+            usingLegacyModel: storedModel,
+            selectedProvider: provider
+        )
+
         if provider == .local {
             self.selectedModel = storedModel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         } else {
-            let fallbackModel = provider.defaultModel
-            let resolvedModel = Self.normalizedModel(storedModel, for: provider) ?? storedModel ?? fallbackModel
-            self.selectedModel = provider.availableModels.contains(resolvedModel) ? resolvedModel : fallbackModel
+            let resolvedModel = Self.storedModelPreference(for: provider, defaults: defaults) ?? provider.defaultModel
+            self.selectedModel = resolvedModel
         }
 
         let styleRaw = defaults.string(forKey: Keys.defaultStyle) ?? RewriteStyle.rewrite.rawValue
@@ -273,6 +289,34 @@ final class SettingsManager: ObservableObject {
         localModelPaths.map(\.modelName)
     }
 
+    func modelDefault(for provider: LLMProviderType) -> String {
+        switch provider {
+        case .local:
+            let selectedLocal = localModelName(for: selectedModel)
+            return selectedLocal ?? localModelPaths.first?.modelName ?? ""
+        case .openai, .anthropic, .xai:
+            return storedModelPreference(for: provider) ?? provider.defaultModel
+        }
+    }
+
+    func setModelDefault(_ model: String, for provider: LLMProviderType) {
+        switch provider {
+        case .local:
+            let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+            if selectedProvider == .local {
+                selectedModel = trimmed
+            }
+        case .openai, .anthropic, .xai:
+            let normalized = Self.normalizedModel(model, for: provider) ?? model
+            let resolvedModel = provider.availableModels.contains(normalized) ? normalized : provider.defaultModel
+            persistModelPreference(resolvedModel, for: provider)
+
+            if selectedProvider == provider, selectedModel != resolvedModel {
+                selectedModel = resolvedModel
+            }
+        }
+    }
+
     private static func provider(from rawValue: String) -> LLMProviderType {
         if rawValue == "Ollama (Local)" {
             return .local
@@ -282,14 +326,23 @@ final class SettingsManager: ObservableObject {
 
     private static func normalizedModel(_ model: String?, for provider: LLMProviderType) -> String? {
         guard let model else { return nil }
-        let normalized = model.lowercased()
+        let normalized = model.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch provider {
         case .openai:
             if normalized == "gpt-5.2" || normalized.hasPrefix("gpt-5.2-") { return "gpt-5.2" }
             if normalized == "gpt-5.1" || normalized.hasPrefix("gpt-5.1-") { return "gpt-5.1-2025-11-13" }
             return nil
-        case .anthropic, .xai, .local:
+        case .anthropic:
+            if normalized == "claude-sonnet-4-6" || normalized.hasPrefix("claude-sonnet-4-6-") { return "claude-sonnet-4-6" }
+            if normalized == "claude-opus-4-6" || normalized.hasPrefix("claude-opus-4-6-") { return "claude-opus-4-6" }
+
+            // Legacy and informal labels mapped to current Anthropic API aliases.
+            if normalized == "claude-4.6-sonnet" || normalized == "claude-4-6-sonnet" { return "claude-sonnet-4-6" }
+            if normalized == "claude-4.6-opus" || normalized == "claude-4-6-opus" { return "claude-opus-4-6" }
+            if normalized == "claude-4.5-sonnet" || normalized == "claude-4-5-sonnet" { return "claude-sonnet-4-6" }
+            return nil
+        case .xai, .local:
             return nil
         }
     }
@@ -299,44 +352,45 @@ final class SettingsManager: ObservableObject {
     }
 
     static func displayModelName(_ model: String, for provider: LLMProviderType) -> String {
-        guard provider == .openai else { return model }
-
         let normalized = model.lowercased()
-        if normalized == "gpt-5.2" || normalized.hasPrefix("gpt-5.2-") { return "GPT-5.2" }
-        if normalized == "gpt-5.1" || normalized.hasPrefix("gpt-5.1-") { return "GPT-5.1" }
-        if normalized.hasPrefix("gpt-5") { return normalized.replacingOccurrences(of: "gpt-", with: "GPT-") }
+
+        switch provider {
+        case .openai:
+            if normalized == "gpt-5.2" || normalized.hasPrefix("gpt-5.2-") { return "GPT-5.2" }
+            if normalized == "gpt-5.1" || normalized.hasPrefix("gpt-5.1-") { return "GPT-5.1" }
+            if normalized.hasPrefix("gpt-5") { return normalized.replacingOccurrences(of: "gpt-", with: "GPT-") }
+        case .anthropic:
+            if normalized == "claude-sonnet-4-6" || normalized.hasPrefix("claude-sonnet-4-6-") { return "Claude Sonnet 4.6" }
+            if normalized == "claude-opus-4-6" || normalized.hasPrefix("claude-opus-4-6-") { return "Claude Opus 4.6" }
+        case .xai, .local:
+            break
+        }
+
         return model
     }
 
     var apiKey: String? {
-        if selectedProvider == .local {
-            return "local"
-        }
-        return try? KeychainHelper.shared.retrieve(forKey: selectedProvider.apiKeyIdentifier)
+        cachedAPIKey(for: selectedProvider)
     }
 
     func apiKey(for provider: LLMProviderType) -> String? {
-        if provider == .local {
-            return "local"
-        }
-        return try? KeychainHelper.shared.retrieve(forKey: provider.apiKeyIdentifier)
+        cachedAPIKey(for: provider)
     }
 
     func setAPIKey(_ key: String, for provider: LLMProviderType) throws {
         guard provider.usesAPIKey else { return }
         try KeychainHelper.shared.save(key, forKey: provider.apiKeyIdentifier)
+        setCachedAPIKey(key, for: provider)
     }
 
     func deleteAPIKey(for provider: LLMProviderType) throws {
         guard provider.usesAPIKey else { return }
         try KeychainHelper.shared.delete(forKey: provider.apiKeyIdentifier)
+        setCachedAPIKey(nil, for: provider)
     }
 
     func hasAPIKey(for provider: LLMProviderType) -> Bool {
-        if provider == .local {
-            return true
-        }
-        return KeychainHelper.shared.exists(forKey: provider.apiKeyIdentifier)
+        cachedAPIKey(for: provider) != nil
     }
 
     var selectedLocalModelPath: String? {
@@ -403,12 +457,12 @@ final class SettingsManager: ObservableObject {
             history = Array(history.prefix(150))
         }
 
-        saveHistory()
+        scheduleHistorySave()
     }
 
     func clearHistory() {
         history = []
-        saveHistory()
+        scheduleHistorySave()
     }
 
     func exportHistory() -> String {
@@ -436,12 +490,57 @@ final class SettingsManager: ObservableObject {
     }
 
     private func saveHistory() {
+        saveHistory(snapshot: history)
+    }
+
+    private func saveHistory(snapshot: [HistoryEntry]) {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
 
-        if let data = try? encoder.encode(history) {
+        if let data = try? encoder.encode(snapshot) {
             defaults.set(data, forKey: Keys.history)
         }
+    }
+
+    private func scheduleHistorySave() {
+        pendingHistorySaveWorkItem?.cancel()
+        let snapshot = history
+
+        let workItem = DispatchWorkItem { [defaults] in
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+
+            if let data = try? encoder.encode(snapshot) {
+                defaults.set(data, forKey: Keys.history)
+            }
+        }
+
+        pendingHistorySaveWorkItem = workItem
+        historyPersistenceQueue.asyncAfter(deadline: .now() + 0.35, execute: workItem)
+    }
+
+    private func cachedAPIKey(for provider: LLMProviderType) -> String? {
+        if provider == .local {
+            return "local"
+        }
+
+        apiKeyCacheLock.lock()
+        let cachedEntry = apiKeyCache[provider]
+        apiKeyCacheLock.unlock()
+
+        if case let .some(cachedValue) = cachedEntry {
+            return cachedValue
+        }
+
+        let loadedValue = try? KeychainHelper.shared.retrieve(forKey: provider.apiKeyIdentifier)
+        setCachedAPIKey(loadedValue, for: provider)
+        return loadedValue
+    }
+
+    private func setCachedAPIKey(_ value: String?, for provider: LLMProviderType) {
+        apiKeyCacheLock.lock()
+        apiKeyCache[provider] = .some(value)
+        apiKeyCacheLock.unlock()
     }
 
     private func loadLocalModelPaths() {
@@ -508,16 +607,93 @@ final class SettingsManager: ObservableObject {
             }
 
         case .openai, .anthropic, .xai:
-            if let normalizedModel = Self.normalizedModel(selectedModel, for: selectedProvider),
-               normalizedModel != selectedModel,
-               selectedProvider.availableModels.contains(normalizedModel) {
-                selectedModel = normalizedModel
-                return
+            let preferredModel = storedModelPreference(for: selectedProvider) ?? selectedProvider.defaultModel
+
+            let candidateModel: String
+            switch reason {
+            case .provider:
+                candidateModel = preferredModel
+            case .selectedModel, .localModelPaths:
+                candidateModel = selectedModel
             }
 
-            if !selectedProvider.availableModels.contains(selectedModel) {
-                selectedModel = selectedProvider.defaultModel
+            var resolvedModel = Self.normalizedModel(candidateModel, for: selectedProvider) ?? candidateModel
+            if !selectedProvider.availableModels.contains(resolvedModel) {
+                resolvedModel = preferredModel
             }
+            if !selectedProvider.availableModels.contains(resolvedModel) {
+                resolvedModel = selectedProvider.defaultModel
+            }
+
+            if selectedModel != resolvedModel {
+                selectedModel = resolvedModel
+            }
+
+            persistModelPreference(resolvedModel, for: selectedProvider)
+        }
+    }
+
+    private static func modelPreferenceKey(for provider: LLMProviderType) -> String? {
+        switch provider {
+        case .openai:
+            return Keys.openAIModel
+        case .anthropic:
+            return Keys.anthropicModel
+        case .xai:
+            return Keys.xaiModel
+        case .local:
+            return nil
+        }
+    }
+
+    private static func storedModelPreference(for provider: LLMProviderType, defaults: UserDefaults) -> String? {
+        guard let key = modelPreferenceKey(for: provider),
+              let stored = defaults.string(forKey: key) else {
+            return nil
+        }
+
+        let normalized = Self.normalizedModel(stored, for: provider) ?? stored
+        guard provider.availableModels.contains(normalized) else {
+            return nil
+        }
+
+        return normalized
+    }
+
+    private func storedModelPreference(for provider: LLMProviderType) -> String? {
+        Self.storedModelPreference(for: provider, defaults: defaults)
+    }
+
+    private func persistModelPreference(_ model: String, for provider: LLMProviderType) {
+        guard let key = Self.modelPreferenceKey(for: provider) else { return }
+
+        let normalized = Self.normalizedModel(model, for: provider) ?? model
+        let resolvedModel = provider.availableModels.contains(normalized) ? normalized : provider.defaultModel
+        defaults.set(resolvedModel, forKey: key)
+    }
+
+    private static func seedCloudModelPreferencesIfNeeded(
+        defaults: UserDefaults,
+        usingLegacyModel legacyModel: String?,
+        selectedProvider: LLMProviderType
+    ) {
+        let cloudProviders: [LLMProviderType] = [.openai, .anthropic, .xai]
+        for provider in cloudProviders {
+            guard let key = modelPreferenceKey(for: provider),
+                  defaults.string(forKey: key) == nil else {
+                continue
+            }
+
+            let seedCandidate: String
+            if provider == selectedProvider, let legacyModel {
+                seedCandidate = legacyModel
+            } else {
+                seedCandidate = provider.defaultModel
+            }
+
+            let normalized = Self.normalizedModel(seedCandidate, for: provider) ?? seedCandidate
+            let resolved = provider.availableModels.contains(normalized) ? normalized : provider.defaultModel
+            defaults.set(resolved, forKey: key)
         }
     }
 }

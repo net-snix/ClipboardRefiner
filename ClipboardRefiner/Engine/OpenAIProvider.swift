@@ -8,29 +8,21 @@ enum ProviderHTTP {
     ) {
         let task = URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error as? URLError, error.code == .cancelled {
-                DispatchQueue.main.async {
-                    completion(.failure(.cancelled))
-                }
+                completion(.failure(.cancelled))
                 return
             }
 
             if let error {
-                DispatchQueue.main.async {
-                    completion(.failure(.networkError(error)))
-                }
+                completion(.failure(.networkError(error)))
                 return
             }
 
             guard let http = response as? HTTPURLResponse, let data else {
-                DispatchQueue.main.async {
-                    completion(.failure(.invalidResponse))
-                }
+                completion(.failure(.invalidResponse))
                 return
             }
 
-            DispatchQueue.main.async {
-                completion(.success((data, http)))
-            }
+            completion(.success((data, http)))
         }
 
         cancellable.setTask(task)
@@ -66,6 +58,14 @@ enum ProviderHTTP {
         }
 
         return nil
+    }
+
+    static func deliverOnMain(_ action: @escaping () -> Void) {
+        if Thread.isMainThread {
+            action()
+        } else {
+            DispatchQueue.main.async(execute: action)
+        }
     }
 }
 
@@ -135,22 +135,30 @@ final class OpenAIProvider: LLMProvider {
         ProviderHTTP.perform(request: request, cancellable: cancellable) { result in
             switch result {
             case .failure(let error):
-                completion(.failure(error))
+                ProviderHTTP.deliverOnMain {
+                    completion(.failure(error))
+                }
             case .success(let (data, response)):
                 if let error = ProviderHTTP.handleStatus(response, data: data) {
-                    completion(.failure(error))
+                    ProviderHTTP.deliverOnMain {
+                        completion(.failure(error))
+                    }
                     return
                 }
 
                 guard let json = ProviderHTTP.decodeJSON(data),
                       let output = Self.extractOutputText(from: json),
                       !output.isEmpty else {
-                    completion(.failure(.invalidResponse))
+                    ProviderHTTP.deliverOnMain {
+                        completion(.failure(.invalidResponse))
+                    }
                     return
                 }
 
-                streamHandler(output)
-                completion(.success(output))
+                ProviderHTTP.deliverOnMain {
+                    streamHandler(output)
+                    completion(.success(output))
+                }
             }
         }
 
@@ -249,22 +257,30 @@ final class XAIProvider: LLMProvider {
         ProviderHTTP.perform(request: request, cancellable: cancellable) { result in
             switch result {
             case .failure(let error):
-                completion(.failure(error))
+                ProviderHTTP.deliverOnMain {
+                    completion(.failure(error))
+                }
             case .success(let (data, response)):
                 if let error = ProviderHTTP.handleStatus(response, data: data) {
-                    completion(.failure(error))
+                    ProviderHTTP.deliverOnMain {
+                        completion(.failure(error))
+                    }
                     return
                 }
 
                 guard let json = ProviderHTTP.decodeJSON(data),
                       let text = Self.extractText(from: json),
                       !text.isEmpty else {
-                    completion(.failure(.invalidResponse))
+                    ProviderHTTP.deliverOnMain {
+                        completion(.failure(.invalidResponse))
+                    }
                     return
                 }
 
-                streamHandler(text)
-                completion(.success(text))
+                ProviderHTTP.deliverOnMain {
+                    streamHandler(text)
+                    completion(.success(text))
+                }
             }
         }
 
@@ -450,6 +466,119 @@ except Exception as exc:
     fail(f"Local generation failed: {exc}")
 
 sys.stdout.write((output or "").strip())
+"""#
+
+    static func preloadToMemory(
+        modelName: String,
+        modelPath: String,
+        completion: @escaping (Result<Void, LLMError>) -> Void
+    ) {
+        let trimmedPath = modelPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else {
+            completion(.failure(.localModelUnavailable("Model path is empty.")))
+            return
+        }
+
+        guard FileManager.default.fileExists(atPath: trimmedPath) else {
+            completion(.failure(.localModelUnavailable("Model path does not exist: \(trimmedPath)")))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            let stderr = Pipe()
+
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["python3", "-c", preloadPythonScript, trimmedPath]
+            process.standardError = stderr
+
+            do {
+                try process.run()
+                process.waitUntilExit()
+
+                let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
+                let errorText = String(data: errorData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if process.terminationStatus == 0 {
+                    completion(.success(()))
+                } else {
+                    let fallback = "Failed to load local model '\(modelName)'."
+                    completion(.failure(.localModelUnavailable(errorText?.isEmpty == false ? errorText! : fallback)))
+                }
+            } catch {
+                completion(.failure(.localModelUnavailable("Failed to start load process: \(error.localizedDescription)")))
+            }
+        }
+    }
+
+    static func unloadFromMemory(completion: @escaping (Result<Void, LLMError>) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            let stdout = Pipe()
+            let stderr = Pipe()
+
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["python3", "-c", unloadPythonScript]
+            process.standardOutput = stdout
+            process.standardError = stderr
+
+            do {
+                try process.run()
+                process.waitUntilExit()
+
+                let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
+                let errorText = String(data: errorData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if process.terminationStatus == 0 {
+                    completion(.success(()))
+                } else {
+                    let fallback = "Failed to unload local model from memory."
+                    completion(.failure(.localModelUnavailable(errorText?.isEmpty == false ? errorText! : fallback)))
+                }
+            } catch {
+                completion(.failure(.localModelUnavailable("Failed to start unload process: \(error.localizedDescription)")))
+            }
+        }
+    }
+
+    private static let unloadPythonScript = #"""
+import gc
+
+try:
+    import mlx.core as mx
+    if hasattr(mx, "metal") and hasattr(mx.metal, "clear_cache"):
+        mx.metal.clear_cache()
+    if hasattr(mx, "clear_cache"):
+        mx.clear_cache()
+except Exception:
+    # Best effort cleanup.
+    pass
+
+gc.collect()
+"""#
+
+    private static let preloadPythonScript = #"""
+import sys
+
+if len(sys.argv) < 2:
+    print("Missing model path.", file=sys.stderr)
+    sys.exit(1)
+
+model_path = sys.argv[1]
+
+try:
+    from mlx_lm import load
+except Exception as exc:
+    print(f"mlx_lm import failed: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+try:
+    model, tokenizer = load(model_path)
+except Exception as exc:
+    print(f"Local model load failed: {exc}", file=sys.stderr)
+    sys.exit(1)
 """#
 }
 

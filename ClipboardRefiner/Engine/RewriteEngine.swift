@@ -8,6 +8,10 @@ final class RewriteEngine: ObservableObject {
     @Published var isProcessing = false
     @Published var currentOutput = ""
     @Published var error: LLMError?
+    @Published private(set) var isLocalModelLoaded = false
+    @Published private(set) var loadedLocalModelName: String?
+    @Published private(set) var isLoadingLocalModel = false
+    @Published private(set) var isUnloadingLocalModel = false
 
     private var currentCancellable: Cancellable?
     private var provider: LLMProvider?
@@ -50,13 +54,22 @@ final class RewriteEngine: ObservableObject {
         case .local:
             guard settings.isSelectedLocalModelConfigured else {
                 provider = nil
+                clearLocalModelLoadedState()
                 return
             }
             guard let modelPath = settings.selectedLocalModelPath else {
                 provider = nil
+                clearLocalModelLoadedState()
                 return
             }
+            if loadedLocalModelName?.caseInsensitiveCompare(settings.selectedModel) != .orderedSame {
+                clearLocalModelLoadedState()
+            }
             provider = LocalModelProvider(modelName: settings.selectedModel, modelPath: modelPath)
+        }
+
+        if settings.selectedProvider != .local {
+            clearLocalModelLoadedState()
         }
     }
 
@@ -119,54 +132,59 @@ final class RewriteEngine: ObservableObject {
             text: text,
             options: options,
             streamHandler: { [weak self] output in
-                self?.currentOutput = output
-                streamHandler(output)
+                self?.deliverOnMain {
+                    self?.currentOutput = output
+                    streamHandler(output)
+                }
             },
             completion: { [weak self] result in
                 guard let self else { return }
 
-                self.isProcessing = false
+                self.deliverOnMain {
+                    self.isProcessing = false
 
-                switch result {
-                case .success(let output):
-                    AppLogger.shared.info("Rewrite completed successfully")
-                    self.currentOutput = output
+                    switch result {
+                    case .success(let output):
+                        AppLogger.shared.info("Rewrite completed successfully")
+                        self.currentOutput = output
 
-                    if settings.historyEnabled {
-                        let entry = HistoryEntry(
-                            originalText: text,
-                            rewrittenText: output,
-                            style: options.style.rawValue,
-                            provider: activeProvider.name
-                        )
-                        settings.addHistoryEntry(entry)
-                    }
-
-                    if settings.offlineCacheEnabled {
-                        Task {
-                            await self.cacheStore.store(value: output, for: cacheKey)
+                        if settings.historyEnabled {
+                            let entry = HistoryEntry(
+                                originalText: text,
+                                rewrittenText: output,
+                                style: options.style.rawValue,
+                                provider: activeProvider.name
+                            )
+                            settings.addHistoryEntry(entry)
                         }
-                    }
 
-                    completion(.success(output))
-
-                case .failure(let failure):
-                    AppLogger.shared.error("Rewrite failed: \(failure.localizedDescription)")
-
-                    Task {
-                        if settings.offlineCacheEnabled,
-                           let cached = await self.cacheStore.lookup(for: cacheKey) {
-                            await MainActor.run {
-                                self.currentOutput = cached
-                                streamHandler(cached)
-                                completion(.success(cached))
+                        if settings.offlineCacheEnabled {
+                            Task {
+                                await self.cacheStore.store(value: output, for: cacheKey)
                             }
-                            return
                         }
 
-                        await MainActor.run {
-                            self.error = failure
-                            completion(.failure(failure))
+                        self.markLocalModelLoadedIfNeeded(provider: activeProvider, settings: settings)
+                        completion(.success(output))
+
+                    case .failure(let failure):
+                        AppLogger.shared.error("Rewrite failed: \(failure.localizedDescription)")
+
+                        Task {
+                            if settings.offlineCacheEnabled,
+                               let cached = await self.cacheStore.lookup(for: cacheKey) {
+                                self.deliverOnMain {
+                                    self.currentOutput = cached
+                                    streamHandler(cached)
+                                    completion(.success(cached))
+                                }
+                                return
+                            }
+
+                            self.deliverOnMain {
+                                self.error = failure
+                                completion(.failure(failure))
+                            }
                         }
                     }
                 }
@@ -186,6 +204,102 @@ final class RewriteEngine: ObservableObject {
             providerOverride: nil,
             streamHandler: streamHandler,
             completion: completion
+        )
+    }
+
+    func rewriteForService(
+        text: String,
+        style: RewriteStyle,
+        completion: @escaping (Result<String, LLMError>) -> Void
+    ) {
+        let settings = SettingsManager.shared
+        let options = RewriteOptions(
+            style: style,
+            aggressiveness: settings.aggressiveness,
+            streaming: false,
+            skill: settings.selectedSkill
+        )
+
+        let providerName = settings.selectedProvider.rawValue
+        let model = settings.selectedModel
+        let cacheKey = makeCacheKey(
+            text: text,
+            options: options,
+            providerName: providerName,
+            model: model
+        )
+
+        updateProvider()
+
+        guard let activeProvider = provider else {
+            let missingProviderError: LLMError = settings.selectedProvider == .local
+                ? .localModelUnavailable("Add a local model path for this model in Provider settings.")
+                : .invalidAPIKey
+
+            Task {
+                if settings.offlineCacheEnabled,
+                   let cached = await self.cacheStore.lookup(for: cacheKey) {
+                    self.deliverOnMain {
+                        completion(.success(cached))
+                    }
+                    return
+                }
+
+                self.deliverOnMain {
+                    completion(.failure(missingProviderError))
+                }
+            }
+            return
+        }
+
+        _ = activeProvider.rewrite(
+            text: text,
+            options: options,
+            streamHandler: { _ in },
+            completion: { [weak self] result in
+                guard let self else { return }
+
+                switch result {
+                case .success(let output):
+                    self.deliverOnMain {
+                        self.markLocalModelLoadedIfNeeded(provider: activeProvider, settings: settings)
+                    }
+                    if settings.historyEnabled {
+                        let entry = HistoryEntry(
+                            originalText: text,
+                            rewrittenText: output,
+                            style: style.rawValue,
+                            provider: activeProvider.name
+                        )
+                        settings.addHistoryEntry(entry)
+                    }
+
+                    if settings.offlineCacheEnabled {
+                        Task {
+                            await self.cacheStore.store(value: output, for: cacheKey)
+                        }
+                    }
+
+                    self.deliverOnMain {
+                        completion(.success(output))
+                    }
+
+                case .failure(let failure):
+                    Task {
+                        if settings.offlineCacheEnabled,
+                           let cached = await self.cacheStore.lookup(for: cacheKey) {
+                            self.deliverOnMain {
+                                completion(.success(cached))
+                            }
+                            return
+                        }
+
+                        self.deliverOnMain {
+                            completion(.failure(failure))
+                        }
+                    }
+                }
+            }
         )
     }
 
@@ -232,9 +346,123 @@ final class RewriteEngine: ObservableObject {
         isProcessing = false
     }
 
+    func unloadLocalModel(completion: @escaping (Result<Void, LLMError>) -> Void = { _ in }) {
+        let settings = SettingsManager.shared
+        guard settings.selectedProvider == .local else {
+            completion(.success(()))
+            return
+        }
+
+        guard isLocalModelLoaded else {
+            completion(.success(()))
+            return
+        }
+
+        guard !isUnloadingLocalModel else { return }
+
+        cancel()
+        isUnloadingLocalModel = true
+
+        LocalModelProvider.unloadFromMemory { [weak self] result in
+            guard let self else { return }
+
+            self.deliverOnMain {
+                self.isUnloadingLocalModel = false
+
+                switch result {
+                case .success:
+                    self.clearLocalModelLoadedState()
+                    completion(.success(()))
+                case .failure(let error):
+                    self.error = error
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
+    func loadLocalModel(completion: @escaping (Result<Void, LLMError>) -> Void = { _ in }) {
+        let settings = SettingsManager.shared
+        guard settings.selectedProvider == .local else {
+            completion(.success(()))
+            return
+        }
+
+        guard let modelPath = settings.selectedLocalModelPath else {
+            let error = LLMError.localModelUnavailable("Add a local model path for this model in Provider settings.")
+            self.error = error
+            completion(.failure(error))
+            return
+        }
+
+        let selectedModel = settings.selectedModel
+        if isLocalModelLoaded,
+           loadedLocalModelName?.caseInsensitiveCompare(selectedModel) == .orderedSame {
+            completion(.success(()))
+            return
+        }
+
+        guard !isLoadingLocalModel, !isUnloadingLocalModel else { return }
+
+        isLoadingLocalModel = true
+        LocalModelProvider.preloadToMemory(modelName: selectedModel, modelPath: modelPath) { [weak self] result in
+            guard let self else { return }
+
+            self.deliverOnMain {
+                self.isLoadingLocalModel = false
+
+                switch result {
+                case .success:
+                    self.isLocalModelLoaded = true
+                    self.loadedLocalModelName = selectedModel
+                    completion(.success(()))
+                case .failure(let error):
+                    self.error = error
+                    completion(.failure(error))
+                }
+            }
+        }
+    }
+
     var hasValidProvider: Bool {
         updateProvider()
         return provider != nil
+    }
+
+    private func deliverOnMain(_ action: @escaping () -> Void) {
+        if Thread.isMainThread {
+            action()
+        } else {
+            DispatchQueue.main.async(execute: action)
+        }
+    }
+
+    private func markLocalModelLoadedIfNeeded(provider: LLMProvider, settings: SettingsManager) {
+        guard provider.providerType == .local else { return }
+        let modelName = settings.selectedModel
+        if Thread.isMainThread {
+            isLocalModelLoaded = true
+            loadedLocalModelName = modelName
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.isLocalModelLoaded = true
+                self?.loadedLocalModelName = modelName
+            }
+        }
+    }
+
+    private func clearLocalModelLoadedState() {
+        if Thread.isMainThread {
+            isLocalModelLoaded = false
+            loadedLocalModelName = nil
+            isLoadingLocalModel = false
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.isLocalModelLoaded = false
+                self?.loadedLocalModelName = nil
+                self?.isLoadingLocalModel = false
+            }
+        }
     }
 
     private func makeCacheKey(text: String, options: RewriteOptions, providerName: String, model: String) -> String {

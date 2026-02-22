@@ -238,6 +238,19 @@ struct MenuBarView: View {
                         .truncationMode(.middle)
                         .frame(maxWidth: 340, alignment: .leading)
                 }
+
+                if settings.selectedLocalModelPath != nil {
+                    HStack(spacing: DS.Spacing.sm) {
+                        Text(engine.isLocalModelLoaded ? "Loaded in memory" : "Not loaded")
+                            .font(DS.Typography.microFont)
+                            .foregroundStyle(DS.Colors.textMuted)
+
+                        Button(localModelActionTitle) {
+                            toggleLocalModelLoadState()
+                        }
+                        .disabled(engine.isUnloadingLocalModel || engine.isLoadingLocalModel || engine.isProcessing)
+                    }
+                }
             }
         } else {
             Picker("Model", selection: $settings.selectedModel) {
@@ -358,7 +371,7 @@ struct MenuBarView: View {
                 title: engine.isProcessing ? "Enhancing" : "Enhance",
                 icon: "sparkles",
                 style: .prominent,
-                isDisabled: engine.isProcessing || !canRun,
+                isDisabled: engine.isProcessing || engine.isLoadingLocalModel || engine.isUnloadingLocalModel || !canRun,
                 action: {
                     run(style: settings.defaultStyle)
                 }
@@ -368,7 +381,7 @@ struct MenuBarView: View {
                 title: "Explain",
                 icon: "text.book.closed",
                 style: .secondary,
-                isDisabled: engine.isProcessing || !canRun,
+                isDisabled: engine.isProcessing || engine.isLoadingLocalModel || engine.isUnloadingLocalModel || !canRun,
                 action: {
                     run(style: .explain)
                 }
@@ -378,7 +391,7 @@ struct MenuBarView: View {
                 title: "Clear",
                 icon: "trash",
                 style: .secondary,
-                isDisabled: engine.isProcessing,
+                isDisabled: engine.isProcessing || engine.isLoadingLocalModel || engine.isUnloadingLocalModel,
                 action: clearAll
             )
         }
@@ -479,6 +492,37 @@ struct MenuBarView: View {
             ? "Generate a polished social post using attached images as context."
             : normalizedInput
 
+        if settings.selectedProvider == .local && !engine.isLocalModelLoaded {
+            runSummary = "Loading local model…"
+            engine.loadLocalModel { loadResult in
+                guard activeRequestID == requestID else { return }
+
+                switch loadResult {
+                case .success:
+                    runSummary = nil
+                    performRewrite(
+                        style: style,
+                        promptText: promptText,
+                        start: start,
+                        requestID: requestID
+                    )
+                case .failure(let error):
+                    runSummary = nil
+                    errorText = error.localizedDescription
+                }
+            }
+            return
+        }
+
+        performRewrite(
+            style: style,
+            promptText: promptText,
+            start: start,
+            requestID: requestID
+        )
+    }
+
+    private func performRewrite(style: RewriteStyle, promptText: String, start: Date, requestID: UUID) {
         let options = RewriteOptions(
             style: style,
             aggressiveness: settings.aggressiveness,
@@ -500,6 +544,47 @@ struct MenuBarView: View {
                     copyResult()
                 }
 
+            case .failure(let error):
+                errorText = error.localizedDescription
+            }
+        }
+    }
+
+    private var localModelActionTitle: String {
+        if engine.isUnloadingLocalModel { return "Unloading…" }
+        if engine.isLoadingLocalModel { return "Loading…" }
+        return engine.isLocalModelLoaded ? "Unload" : "Load"
+    }
+
+    private func toggleLocalModelLoadState() {
+        if engine.isLocalModelLoaded {
+            unloadLocalModel()
+        } else {
+            loadLocalModel()
+        }
+    }
+
+    private func loadLocalModel() {
+        errorText = nil
+        runSummary = "Loading local model…"
+        engine.loadLocalModel { result in
+            switch result {
+            case .success:
+                runSummary = "Local model loaded"
+            case .failure(let error):
+                runSummary = nil
+                errorText = error.localizedDescription
+            }
+        }
+    }
+
+    private func unloadLocalModel() {
+        errorText = nil
+        runSummary = nil
+        engine.unloadLocalModel { result in
+            switch result {
+            case .success:
+                runSummary = "Local model unloaded"
             case .failure(let error):
                 errorText = error.localizedDescription
             }

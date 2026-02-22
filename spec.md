@@ -44,7 +44,7 @@ Users can create custom styles with their own prompts:
 ### Supported Providers
 
 1. **OpenAI** (gpt-4o, gpt-4o-mini, gpt-5.2)
-2. **Anthropic** (claude-4.5-sonnet)
+2. **Anthropic** (claude-sonnet-4-6, claude-opus-4-6)
 3. **xAI** (grok-4-1-fast, grok-4-1-fast-reasoning-latest)
 4. **Local** (on-device models via configured model paths)
 
