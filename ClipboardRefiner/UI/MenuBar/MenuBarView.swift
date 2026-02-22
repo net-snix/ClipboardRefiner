@@ -10,6 +10,8 @@ struct MenuBarView: View {
     @ObservedObject private var engine = RewriteEngine.shared
 
     private let maxAttachments = 4
+    private let composerFieldHeight: CGFloat = 300
+    private let imagePanelWidth: CGFloat = 320
 
     @Namespace private var glassNamespace
 
@@ -40,21 +42,16 @@ struct MenuBarView: View {
                     controlsSection
                         .staggeredAppear(index: 1, isVisible: hasAppeared)
 
-                    inputSection
+                    composerSection
                         .staggeredAppear(index: 2, isVisible: hasAppeared)
 
-                    attachmentsSection
+                    actionsSection
                         .staggeredAppear(index: 3, isVisible: hasAppeared)
 
-                    actionsSection
-                        .staggeredAppear(index: 4, isVisible: hasAppeared)
-
                     resultSection
-                        .staggeredAppear(index: 5, isVisible: hasAppeared)
+                        .staggeredAppear(index: 4, isVisible: hasAppeared)
                 }
                 .padding(DS.Spacing.xl)
-                .animation(DS.Animation.smooth, value: attachments.count)
-                .animation(DS.Animation.standard, value: isDropTargeted)
             }
         }
         .frame(minWidth: 820, minHeight: 720)
@@ -81,20 +78,20 @@ struct MenuBarView: View {
                 run(style: .explain)
             }
         }
-        .onChange(of: settings.selectedProvider) { _, _ in
-            RewriteEngine.shared.updateProvider()
-        }
-        .onChange(of: settings.selectedModel) { _, _ in
-            RewriteEngine.shared.updateProvider()
-        }
         .onChange(of: outputText) { _, value in
+            let shouldShow = !value.isEmpty || engine.isProcessing
+            guard shouldShow != showResultPanel else { return }
+
             withAnimation(DS.Animation.standard) {
-                showResultPanel = !value.isEmpty || engine.isProcessing
+                showResultPanel = shouldShow
             }
         }
         .onChange(of: engine.isProcessing) { _, processing in
+            let shouldShow = processing || !outputText.isEmpty
+            guard shouldShow != showResultPanel else { return }
+
             withAnimation(DS.Animation.standard) {
-                showResultPanel = processing || !outputText.isEmpty
+                showResultPanel = shouldShow
             }
         }
     }
@@ -136,7 +133,7 @@ struct MenuBarView: View {
                     .glassAccentCapsule(active: true, tint: DS.Colors.accent)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Post Enhancer")
+                    Text("Clipboard Refiner")
                         .font(.system(size: 24, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
 
@@ -197,6 +194,10 @@ struct MenuBarView: View {
 
                         modelControl
                     }
+                    .frame(
+                        maxWidth: settings.selectedProvider == .local ? 420 : 360,
+                        alignment: .leading
+                    )
 
                     VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                         Text("SKILL")
@@ -206,6 +207,9 @@ struct MenuBarView: View {
 
                         skillControl
                     }
+                    .frame(width: 260, alignment: .leading)
+
+                    Spacer(minLength: 0)
                 }
             }
         }
@@ -221,11 +225,12 @@ struct MenuBarView: View {
                         .font(DS.Typography.microFont)
                         .foregroundStyle(DS.Colors.textMuted)
                 } else {
-                    Picker("Local model", selection: $settings.selectedModel) {
+                    Picker("Local model", selection: localModelSelectionBinding) {
                         ForEach(settings.localModelPaths) { entry in
                             Text(entry.modelName).tag(entry.modelName)
                         }
                     }
+                    .labelsHidden()
                     .pickerStyle(.menu)
                     .frame(maxWidth: 320, alignment: .leading)
                 }
@@ -241,7 +246,7 @@ struct MenuBarView: View {
 
                 if settings.selectedLocalModelPath != nil {
                     HStack(spacing: DS.Spacing.sm) {
-                        Text(engine.isLocalModelLoaded ? "Loaded in memory" : "Not loaded")
+                        Text(isSelectedLocalModelLoaded ? "Loaded in memory" : "Not loaded")
                             .font(DS.Typography.microFont)
                             .foregroundStyle(DS.Colors.textMuted)
 
@@ -250,17 +255,74 @@ struct MenuBarView: View {
                         }
                         .disabled(engine.isUnloadingLocalModel || engine.isLoadingLocalModel || engine.isProcessing)
                     }
+
+                    Toggle("Keep loaded", isOn: $settings.keepLocalModelLoaded)
+                        .font(DS.Typography.microFont)
+                        .toggleStyle(.switch)
                 }
             }
         } else {
-            Picker("Model", selection: $settings.selectedModel) {
+            Picker("Model", selection: cloudModelSelectionBinding) {
                 ForEach(settings.selectedProvider.availableModels, id: \.self) { model in
                     Text(SettingsManager.displayModelName(model, for: settings.selectedProvider)).tag(model)
                 }
             }
+            .labelsHidden()
             .pickerStyle(.menu)
             .frame(maxWidth: 320, alignment: .leading)
         }
+    }
+
+    private var localModelSelectionBinding: Binding<String> {
+        Binding(
+            get: {
+                resolvedLocalModelSelection
+            },
+            set: { newValue in
+                settings.selectedModel = newValue
+            }
+        )
+    }
+
+    private var cloudModelSelectionBinding: Binding<String> {
+        Binding(
+            get: {
+                resolvedCloudModelSelection(for: settings.selectedProvider)
+            },
+            set: { newValue in
+                settings.selectedModel = newValue
+            }
+        )
+    }
+
+    private var resolvedLocalModelSelection: String {
+        guard let first = settings.localModelPaths.first?.modelName else {
+            return ""
+        }
+
+        if let matched = settings.localModelPaths.first(where: {
+            $0.modelName.caseInsensitiveCompare(settings.selectedModel) == .orderedSame
+        }) {
+            return matched.modelName
+        }
+
+        return first
+    }
+
+    private func resolvedCloudModelSelection(for provider: LLMProviderType) -> String {
+        let models = provider.availableModels
+        guard !models.isEmpty else { return settings.selectedModel }
+
+        if models.contains(settings.selectedModel) {
+            return settings.selectedModel
+        }
+
+        let preferred = settings.modelDefault(for: provider)
+        if models.contains(preferred) {
+            return preferred
+        }
+
+        return models[0]
     }
 
     private var skillControl: some View {
@@ -270,8 +332,16 @@ struct MenuBarView: View {
                 Text(skill.name).tag(skill.id)
             }
         }
+        .labelsHidden()
         .pickerStyle(.menu)
         .frame(maxWidth: 240, alignment: .leading)
+    }
+
+    private var composerSection: some View {
+        HStack(alignment: .top, spacing: DS.Spacing.md) {
+            inputSection
+            attachmentsSection
+        }
     }
 
     private var inputSection: some View {
@@ -292,11 +362,12 @@ struct MenuBarView: View {
                 TextBox(
                     text: $inputText,
                     placeholder: "Paste text or drop images. Keep empty to generate from image context.",
-                    minHeight: 170,
-                    maxHeight: 310
+                    minHeight: composerFieldHeight,
+                    maxHeight: composerFieldHeight
                 )
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .glassMorph(id: "input", namespace: glassNamespace)
     }
 
@@ -317,18 +388,18 @@ struct MenuBarView: View {
                     HStack(spacing: DS.Spacing.sm) {
                         Image(systemName: "tray.and.arrow.down")
                             .foregroundStyle(isDropTargeted ? DS.Colors.accent : DS.Colors.textTertiary)
-                        Text("Drag & drop up to \(maxAttachments) images")
+                        Text("Drop up to \(maxAttachments) images")
                             .font(DS.Typography.captionFont)
                             .foregroundStyle(DS.Colors.textSecondary)
                     }
 
                     if attachments.isEmpty {
-                        Text("PNG, JPEG, HEIC, TIFF. Sent to cloud vision endpoints. Local provider is text-only.")
+                        Text("PNG, JPEG, HEIC, TIFF.")
                             .font(DS.Typography.microFont)
                             .foregroundStyle(DS.Colors.textMuted)
                     } else {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: DS.Spacing.sm) {
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                                 ForEach(attachments) { item in
                                     AttachmentChip(item: item) {
                                         removeAttachment(item.id)
@@ -340,10 +411,33 @@ struct MenuBarView: View {
                                 }
                             }
                         }
-                        .frame(height: 48)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+
+                    Spacer(minLength: 0)
+
+                    Text("Cloud providers only. Local is text-only.")
+                        .font(DS.Typography.microFont)
+                        .foregroundStyle(DS.Colors.textMuted)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .opacity(attachments.isEmpty ? 1 : 0.9)
+                        .padding(.top, DS.Spacing.xs)
+
+                    if attachments.isEmpty {
+                        Text("Drag files here")
+                            .font(DS.Typography.microFont)
+                            .foregroundStyle(DS.Colors.textTertiary)
+                            .padding(.top, DS.Spacing.xs)
                     }
                 }
                 .padding(DS.Spacing.md)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: composerFieldHeight,
+                    maxHeight: composerFieldHeight,
+                    alignment: .topLeading
+                )
                 .background(
                     RoundedRectangle(cornerRadius: DS.Radius.md)
                         .fill(isDropTargeted ? DS.Colors.accentSubtle : DS.Colors.surfacePrimary)
@@ -362,6 +456,7 @@ struct MenuBarView: View {
                 )
             }
         }
+        .frame(width: imagePanelWidth, alignment: .topLeading)
         .glassMorph(id: "attachments", namespace: glassNamespace)
     }
 
@@ -428,7 +523,8 @@ struct MenuBarView: View {
                         placeholder: engine.isProcessing ? "Processing…" : "Run Enhance to generate output.",
                         isEditable: false,
                         minHeight: 170,
-                        maxHeight: 320
+                        maxHeight: 320,
+                        shouldMeasureHeight: false
                     )
 
                     if let errorText {
@@ -471,6 +567,16 @@ struct MenuBarView: View {
         attachments.map(\.attachment)
     }
 
+    private var selectedProviderModelName: String {
+        settings.modelDefault(for: settings.selectedProvider)
+    }
+
+    private var isSelectedLocalModelLoaded: Bool {
+        guard engine.isLocalModelLoaded else { return false }
+        guard let loadedModel = engine.loadedLocalModelName else { return false }
+        return loadedModel.caseInsensitiveCompare(settings.selectedModel) == .orderedSame
+    }
+
     private func loadClipboard(force: Bool) {
         guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else { return }
         guard force || inputText.isEmpty else { return }
@@ -492,7 +598,7 @@ struct MenuBarView: View {
             ? "Generate a polished social post using attached images as context."
             : normalizedInput
 
-        if settings.selectedProvider == .local && !engine.isLocalModelLoaded {
+        if settings.selectedProvider == .local && !isSelectedLocalModelLoaded {
             runSummary = "Loading local model…"
             engine.loadLocalModel { loadResult in
                 guard activeRequestID == requestID else { return }
@@ -531,14 +637,17 @@ struct MenuBarView: View {
             imageAttachments: optionAttachments
         )
 
-        engine.rewrite(text: promptText, options: options, streamHandler: { _ in }) { result in
+        engine.rewrite(text: promptText, options: options, streamHandler: { streamedText in
+            guard activeRequestID == requestID else { return }
+            outputText = streamedText
+        }) { result in
             guard activeRequestID == requestID else { return }
 
             switch result {
             case .success(let newValue):
                 outputText = newValue
                 let elapsed = max(0.05, Date().timeIntervalSince(start))
-                runSummary = "\(style.displayName) • \(settings.selectedModel) • \(String(format: "%.2fs", elapsed))"
+                runSummary = "\(style.displayName) • \(selectedProviderModelName) • \(String(format: "%.2fs", elapsed))"
 
                 if settings.autoCopyEnabled {
                     copyResult()
@@ -553,11 +662,11 @@ struct MenuBarView: View {
     private var localModelActionTitle: String {
         if engine.isUnloadingLocalModel { return "Unloading…" }
         if engine.isLoadingLocalModel { return "Loading…" }
-        return engine.isLocalModelLoaded ? "Unload" : "Load"
+        return isSelectedLocalModelLoaded ? "Unload" : "Load"
     }
 
     private func toggleLocalModelLoadState() {
-        if engine.isLocalModelLoaded {
+        if isSelectedLocalModelLoaded {
             unloadLocalModel()
         } else {
             loadLocalModel()

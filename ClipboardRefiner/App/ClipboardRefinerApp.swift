@@ -3,8 +3,10 @@ import SwiftUI
 
 @main
 struct ClipboardRefinerApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
-        WindowGroup("Post Enhancer") {
+        WindowGroup("Clipboard Refiner") {
             MenuBarView(
                 onDismiss: {
                     NSApp.keyWindow?.close()

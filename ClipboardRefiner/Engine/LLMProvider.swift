@@ -74,3 +74,33 @@ final class URLSessionTaskCancellable: Cancellable {
         task?.cancel()
     }
 }
+
+final class TaskCancellable: Cancellable {
+    private var task: Task<Void, Never>?
+    private let lock = NSLock()
+    private(set) var isCancelled = false
+
+    func setTask(_ task: Task<Void, Never>) {
+        lock.lock()
+        self.task = task
+        let shouldCancel = isCancelled
+        lock.unlock()
+
+        if shouldCancel {
+            task.cancel()
+        }
+    }
+
+    func cancel() {
+        lock.lock()
+        if isCancelled {
+            lock.unlock()
+            return
+        }
+        isCancelled = true
+        let task = self.task
+        lock.unlock()
+
+        task?.cancel()
+    }
+}

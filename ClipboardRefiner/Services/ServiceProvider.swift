@@ -21,11 +21,11 @@ import Foundation
             resolvedAction = "rewrite"
         }
 
-        AppLogger.shared.info("Clipboard Refiner service invoked (open menu bar): \(resolvedAction)")
+        AppLogger.shared.info("Clipboard Refiner service invoked (open window): \(resolvedAction)")
 
         DispatchQueue.main.async {
             guard let delegate = AppDelegate.shared else {
-                AppLogger.shared.error("Unable to open menu bar: missing AppDelegate instance")
+                AppLogger.shared.error("Unable to open window: missing AppDelegate instance")
                 return
             }
 

@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 import CryptoKit
 
 final class RewriteEngine: ObservableObject {
@@ -15,6 +14,14 @@ final class RewriteEngine: ObservableObject {
 
     private var currentCancellable: Cancellable?
     private var provider: LLMProvider?
+    private var activeRewriteProviderType: LLMProviderType?
+    private let localWorkerLifecycleQueue = DispatchQueue(
+        label: "com.clipboardrefiner.local-worker-lifecycle",
+        qos: .userInitiated
+    )
+    private let rewriteRequestLock = NSLock()
+    private var activeRewriteRequestID = UUID()
+    private var completedRewriteRequestID: UUID?
 
     private let cacheStore = RewriteCacheStore()
 
@@ -24,52 +31,60 @@ final class RewriteEngine: ObservableObject {
 
     func updateProvider() {
         let settings = SettingsManager.shared
+        let previousProviderType = provider?.providerType
 
         switch settings.selectedProvider {
         case .openai:
             guard let apiKey = settings.apiKey, !apiKey.isEmpty else {
                 provider = nil
+                syncLocalWorkerStateForNonLocalSelection(previousProviderType: previousProviderType)
                 return
             }
+            let model = settings.modelDefault(for: .openai)
             provider = OpenAIProvider(
                 apiKey: apiKey,
-                model: settings.selectedModel,
+                model: model,
                 reasoningEffort: settings.openAIReasoningEffort
             )
 
         case .anthropic:
             guard let apiKey = settings.apiKey, !apiKey.isEmpty else {
                 provider = nil
+                syncLocalWorkerStateForNonLocalSelection(previousProviderType: previousProviderType)
                 return
             }
-            provider = AnthropicProvider(apiKey: apiKey, model: settings.selectedModel)
+            let model = settings.modelDefault(for: .anthropic)
+            provider = AnthropicProvider(apiKey: apiKey, model: model)
 
         case .xai:
             guard let apiKey = settings.apiKey, !apiKey.isEmpty else {
                 provider = nil
+                syncLocalWorkerStateForNonLocalSelection(previousProviderType: previousProviderType)
                 return
             }
-            provider = XAIProvider(apiKey: apiKey, model: settings.selectedModel)
+            let model = settings.modelDefault(for: .xai)
+            provider = XAIProvider(apiKey: apiKey, model: model)
 
         case .local:
-            guard settings.isSelectedLocalModelConfigured else {
+            let modelName = settings.modelDefault(for: .local)
+            guard !modelName.isEmpty else {
                 provider = nil
-                clearLocalModelLoadedState()
+                releaseLocalWorkerResources()
                 return
             }
-            guard let modelPath = settings.selectedLocalModelPath else {
+            guard let modelPath = settings.localModelPath(for: modelName) else {
                 provider = nil
-                clearLocalModelLoadedState()
+                releaseLocalWorkerResources()
                 return
             }
-            if loadedLocalModelName?.caseInsensitiveCompare(settings.selectedModel) != .orderedSame {
+            if loadedLocalModelName?.caseInsensitiveCompare(modelName) != .orderedSame {
                 clearLocalModelLoadedState()
             }
-            provider = LocalModelProvider(modelName: settings.selectedModel, modelPath: modelPath)
+            provider = LocalModelProvider(modelName: modelName, modelPath: modelPath)
         }
 
         if settings.selectedProvider != .local {
-            clearLocalModelLoadedState()
+            syncLocalWorkerStateForNonLocalSelection(previousProviderType: previousProviderType)
         }
     }
 
@@ -81,14 +96,79 @@ final class RewriteEngine: ObservableObject {
         completion: @escaping (Result<String, LLMError>) -> Void
     ) {
         cancel()
+        let rewriteRequestID = beginRewriteRequest()
 
         let settings = SettingsManager.shared
+        let requestProviderType = providerOverride?.providerType ?? settings.selectedProvider
+        let requestProviderName = providerOverride?.name ?? requestProviderType.rawValue
+        let requestModelName = resolvedModelName(for: requestProviderType, settings: settings)
         let cacheKey = makeCacheKey(
             text: text,
             options: options,
-            providerName: providerOverride?.name ?? settings.selectedProvider.rawValue,
-            model: settings.selectedModel
+            providerName: requestProviderName,
+            model: requestModelName
         )
+        activeRewriteProviderType = requestProviderType
+
+        let finalizeRequest: (Result<String, LLMError>, String?) -> Void = { [weak self] result, finalOutput in
+            guard let self else { return }
+
+            self.deliverOnMain {
+                let isActiveRequest = self.isActiveRewriteRequest(rewriteRequestID)
+                let finalResult = isActiveRequest ? result : .failure(.cancelled)
+                let finalText = finalOutput ?? (try? finalResult.get())
+
+                guard self.markRewriteRequestCompleted(rewriteRequestID, result: finalResult, completion: completion) else {
+                    return
+                }
+
+                guard isActiveRequest else {
+                    return
+                }
+
+                self.isProcessing = false
+
+                switch finalResult {
+                case .success(let output):
+                    AppLogger.shared.info("Rewrite completed successfully")
+                    self.currentOutput = output
+                    if let activeProviderText = finalText {
+                        self.currentOutput = activeProviderText
+                    }
+
+                    if settings.historyEnabled {
+                        let entry = HistoryEntry(
+                            originalText: text,
+                            rewrittenText: output,
+                            style: options.style.rawValue,
+                            provider: requestProviderName
+                        )
+                        settings.addHistoryEntry(entry)
+                    }
+
+                    if settings.offlineCacheEnabled {
+                        Task {
+                            await self.cacheStore.store(value: output, for: cacheKey)
+                        }
+                    }
+
+                    if requestProviderType == .local {
+                        self.isLocalModelLoaded = true
+                        self.loadedLocalModelName = requestModelName
+                    }
+
+                case .failure(let failure):
+                    AppLogger.shared.error("Rewrite failed: \(failure.localizedDescription)")
+                    self.error = failure
+                }
+
+                self.maybeUnloadLocalModelAfterRequest(
+                    providerType: requestProviderType,
+                    settings: settings
+                )
+                self.activeRewriteProviderType = nil
+            }
+        }
 
         let activeProvider: LLMProvider
         if let providerOverride {
@@ -103,17 +183,18 @@ final class RewriteEngine: ObservableObject {
 
                 Task {
                     if settings.offlineCacheEnabled, let cached = await cacheStore.lookup(for: cacheKey) {
-                        await MainActor.run {
-                            self.currentOutput = cached
-                            streamHandler(cached)
-                            completion(.success(cached))
+                        await MainActor.run { [weak self] in
+                            guard let self else { return }
+                            if self.isActiveRewriteRequest(rewriteRequestID) {
+                                streamHandler(cached)
+                            }
+                            finalizeRequest(.success(cached), cached)
                         }
                         return
                     }
 
                     await MainActor.run {
-                        self.error = missingProviderError
-                        completion(.failure(missingProviderError))
+                        finalizeRequest(.failure(missingProviderError), nil)
                     }
                 }
                 return
@@ -122,75 +203,71 @@ final class RewriteEngine: ObservableObject {
             activeProvider = provider
         }
 
-        isProcessing = true
-        error = nil
-        currentOutput = ""
+        deliverOnMain {
+            self.isProcessing = true
+            self.error = nil
+            self.currentOutput = ""
+        }
 
         AppLogger.shared.info("Starting rewrite with style: \(options.style.rawValue)")
 
-        currentCancellable = activeProvider.rewrite(
-            text: text,
-            options: options,
-            streamHandler: { [weak self] output in
-                self?.deliverOnMain {
-                    self?.currentOutput = output
-                    streamHandler(output)
-                }
-            },
-            completion: { [weak self] result in
-                guard let self else { return }
+        let startProviderRewrite: () -> Void = { [weak self] in
+            guard let self else { return }
+            guard self.isActiveRewriteRequest(rewriteRequestID) else { return }
 
-                self.deliverOnMain {
-                    self.isProcessing = false
-
-                    switch result {
-                    case .success(let output):
-                        AppLogger.shared.info("Rewrite completed successfully")
+            self.currentCancellable = activeProvider.rewrite(
+                text: text,
+                options: options,
+                streamHandler: { [weak self] output in
+                    self?.deliverOnMain {
+                        guard let self, self.isActiveRewriteRequest(rewriteRequestID) else { return }
                         self.currentOutput = output
-
-                        if settings.historyEnabled {
-                            let entry = HistoryEntry(
-                                originalText: text,
-                                rewrittenText: output,
-                                style: options.style.rawValue,
-                                provider: activeProvider.name
-                            )
-                            settings.addHistoryEntry(entry)
-                        }
-
-                        if settings.offlineCacheEnabled {
+                        streamHandler(output)
+                    }
+                },
+                completion: { [weak self] result in
+                    guard let self else { return }
+                    self.deliverOnMain {
+                        switch result {
+                        case .success(let output):
+                            finalizeRequest(.success(output), output)
+                        case .failure(let failure):
                             Task {
-                                await self.cacheStore.store(value: output, for: cacheKey)
-                            }
-                        }
-
-                        self.markLocalModelLoadedIfNeeded(provider: activeProvider, settings: settings)
-                        completion(.success(output))
-
-                    case .failure(let failure):
-                        AppLogger.shared.error("Rewrite failed: \(failure.localizedDescription)")
-
-                        Task {
-                            if settings.offlineCacheEnabled,
-                               let cached = await self.cacheStore.lookup(for: cacheKey) {
-                                self.deliverOnMain {
-                                    self.currentOutput = cached
-                                    streamHandler(cached)
-                                    completion(.success(cached))
+                                if settings.offlineCacheEnabled,
+                                   let cached = await self.cacheStore.lookup(for: cacheKey) {
+                                    await MainActor.run { [weak self] in
+                                        guard let self else { return }
+                                        if self.isActiveRewriteRequest(rewriteRequestID) {
+                                            streamHandler(cached)
+                                        }
+                                        finalizeRequest(.success(cached), cached)
+                                    }
+                                    return
                                 }
-                                return
-                            }
 
-                            self.deliverOnMain {
-                                self.error = failure
-                                completion(.failure(failure))
+                                await MainActor.run {
+                                    finalizeRequest(.failure(failure), nil)
+                                }
                             }
                         }
                     }
                 }
+            )
+        }
+
+        if requestProviderType == .local {
+            localWorkerLifecycleQueue.async { [weak self] in
+                self?.deliverOnMain {
+                    startProviderRewrite()
+                }
             }
-        )
+        } else {
+            deliverOnMain {
+                startProviderRewrite()
+            }
+        }
     }
+
 
     func rewrite(
         text: String,
@@ -220,87 +297,7 @@ final class RewriteEngine: ObservableObject {
             skill: settings.selectedSkill
         )
 
-        let providerName = settings.selectedProvider.rawValue
-        let model = settings.selectedModel
-        let cacheKey = makeCacheKey(
-            text: text,
-            options: options,
-            providerName: providerName,
-            model: model
-        )
-
-        updateProvider()
-
-        guard let activeProvider = provider else {
-            let missingProviderError: LLMError = settings.selectedProvider == .local
-                ? .localModelUnavailable("Add a local model path for this model in Provider settings.")
-                : .invalidAPIKey
-
-            Task {
-                if settings.offlineCacheEnabled,
-                   let cached = await self.cacheStore.lookup(for: cacheKey) {
-                    self.deliverOnMain {
-                        completion(.success(cached))
-                    }
-                    return
-                }
-
-                self.deliverOnMain {
-                    completion(.failure(missingProviderError))
-                }
-            }
-            return
-        }
-
-        _ = activeProvider.rewrite(
-            text: text,
-            options: options,
-            streamHandler: { _ in },
-            completion: { [weak self] result in
-                guard let self else { return }
-
-                switch result {
-                case .success(let output):
-                    self.deliverOnMain {
-                        self.markLocalModelLoadedIfNeeded(provider: activeProvider, settings: settings)
-                    }
-                    if settings.historyEnabled {
-                        let entry = HistoryEntry(
-                            originalText: text,
-                            rewrittenText: output,
-                            style: style.rawValue,
-                            provider: activeProvider.name
-                        )
-                        settings.addHistoryEntry(entry)
-                    }
-
-                    if settings.offlineCacheEnabled {
-                        Task {
-                            await self.cacheStore.store(value: output, for: cacheKey)
-                        }
-                    }
-
-                    self.deliverOnMain {
-                        completion(.success(output))
-                    }
-
-                case .failure(let failure):
-                    Task {
-                        if settings.offlineCacheEnabled,
-                           let cached = await self.cacheStore.lookup(for: cacheKey) {
-                            self.deliverOnMain {
-                                completion(.success(cached))
-                            }
-                            return
-                        }
-
-                        self.deliverOnMain {
-                            completion(.failure(failure))
-                        }
-                    }
-                }
-            }
-        )
+        rewrite(text: text, options: options, providerOverride: nil, streamHandler: { _ in }, completion: completion)
     }
 
     func rewriteSync(text: String, style: RewriteStyle) -> Result<String, LLMError> {
@@ -344,6 +341,16 @@ final class RewriteEngine: ObservableObject {
         currentCancellable?.cancel()
         currentCancellable = nil
         isProcessing = false
+        invalidateActiveRewriteRequest()
+
+        if let providerType = activeRewriteProviderType {
+            maybeUnloadLocalModelAfterRequest(
+                providerType: providerType,
+                settings: SettingsManager.shared,
+                forceUnload: true
+            )
+            activeRewriteProviderType = nil
+        }
     }
 
     func unloadLocalModel(completion: @escaping (Result<Void, LLMError>) -> Void = { _ in }) {
@@ -363,13 +370,21 @@ final class RewriteEngine: ObservableObject {
         cancel()
         isUnloadingLocalModel = true
 
-        LocalModelProvider.unloadFromMemory { [weak self] result in
+        localWorkerLifecycleQueue.async { [weak self] in
             guard let self else { return }
+
+            let semaphore = DispatchSemaphore(value: 0)
+            var unloadResult: Result<Void, LLMError> = .success(())
+            LocalModelProvider.unloadFromMemory { result in
+                unloadResult = result
+                semaphore.signal()
+            }
+            semaphore.wait()
 
             self.deliverOnMain {
                 self.isUnloadingLocalModel = false
 
-                switch result {
+                switch unloadResult {
                 case .success:
                     self.clearLocalModelLoadedState()
                     completion(.success(()))
@@ -405,13 +420,21 @@ final class RewriteEngine: ObservableObject {
         guard !isLoadingLocalModel, !isUnloadingLocalModel else { return }
 
         isLoadingLocalModel = true
-        LocalModelProvider.preloadToMemory(modelName: selectedModel, modelPath: modelPath) { [weak self] result in
+        localWorkerLifecycleQueue.async { [weak self] in
             guard let self else { return }
+
+            let semaphore = DispatchSemaphore(value: 0)
+            var loadResult: Result<Void, LLMError> = .success(())
+            LocalModelProvider.preloadToMemory(modelName: selectedModel, modelPath: modelPath) { result in
+                loadResult = result
+                semaphore.signal()
+            }
+            semaphore.wait()
 
             self.deliverOnMain {
                 self.isLoadingLocalModel = false
 
-                switch result {
+                switch loadResult {
                 case .success:
                     self.isLocalModelLoaded = true
                     self.loadedLocalModelName = selectedModel
@@ -437,32 +460,97 @@ final class RewriteEngine: ObservableObject {
         }
     }
 
-    private func markLocalModelLoadedIfNeeded(provider: LLMProvider, settings: SettingsManager) {
-        guard provider.providerType == .local else { return }
-        let modelName = settings.selectedModel
+    private func clearLocalModelLoadedState() {
+        let applyClear: (RewriteEngine) -> Void = { engine in
+            guard engine.isLocalModelLoaded || engine.loadedLocalModelName != nil || engine.isLoadingLocalModel else {
+                return
+            }
+            engine.isLocalModelLoaded = false
+            engine.loadedLocalModelName = nil
+            engine.isLoadingLocalModel = false
+        }
+
         if Thread.isMainThread {
-            isLocalModelLoaded = true
-            loadedLocalModelName = modelName
+            applyClear(self)
         } else {
             DispatchQueue.main.async { [weak self] in
-                self?.isLocalModelLoaded = true
-                self?.loadedLocalModelName = modelName
+                guard let self else { return }
+                applyClear(self)
             }
         }
     }
 
-    private func clearLocalModelLoadedState() {
-        if Thread.isMainThread {
-            isLocalModelLoaded = false
-            loadedLocalModelName = nil
-            isLoadingLocalModel = false
-        } else {
-            DispatchQueue.main.async { [weak self] in
-                self?.isLocalModelLoaded = false
-                self?.loadedLocalModelName = nil
-                self?.isLoadingLocalModel = false
+    private func releaseLocalWorkerResources() {
+        clearLocalModelLoadedState()
+        localWorkerLifecycleQueue.async {
+            let semaphore = DispatchSemaphore(value: 0)
+            LocalModelProvider.unloadFromMemory { _ in
+                semaphore.signal()
             }
+            semaphore.wait()
         }
+    }
+
+    private func maybeUnloadLocalModelAfterRequest(
+        providerType: LLMProviderType,
+        settings: SettingsManager,
+        forceUnload: Bool = false
+    ) {
+        guard providerType == .local else { return }
+        guard forceUnload || !settings.keepLocalModelLoaded else { return }
+        releaseLocalWorkerResources()
+    }
+
+    private func syncLocalWorkerStateForNonLocalSelection(previousProviderType: LLMProviderType?) {
+        if previousProviderType == .local || isLocalModelLoaded || loadedLocalModelName != nil {
+            releaseLocalWorkerResources()
+        } else {
+            clearLocalModelLoadedState()
+        }
+    }
+
+    private func beginRewriteRequest() -> UUID {
+        rewriteRequestLock.lock()
+        defer { rewriteRequestLock.unlock() }
+        let id = UUID()
+        activeRewriteRequestID = id
+        completedRewriteRequestID = nil
+        return id
+    }
+
+    private func isActiveRewriteRequest(_ id: UUID) -> Bool {
+        rewriteRequestLock.lock()
+        defer { rewriteRequestLock.unlock() }
+        return activeRewriteRequestID == id
+    }
+
+    private func markRewriteRequestCompleted(
+        _ id: UUID,
+        result: Result<String, LLMError>,
+        completion: @escaping (Result<String, LLMError>) -> Void
+    ) -> Bool {
+        rewriteRequestLock.lock()
+        if completedRewriteRequestID == id {
+            rewriteRequestLock.unlock()
+            return false
+        }
+        completedRewriteRequestID = id
+        rewriteRequestLock.unlock()
+
+        completion(result)
+
+        return isActiveRewriteRequest(id)
+    }
+
+    private func invalidateActiveRewriteRequest() {
+        rewriteRequestLock.lock()
+        activeRewriteRequestID = UUID()
+        completedRewriteRequestID = nil
+        rewriteRequestLock.unlock()
+    }
+
+    private func resolvedModelName(for provider: LLMProviderType, settings: SettingsManager) -> String {
+        settings.modelDefault(for: provider)
     }
 
     private func makeCacheKey(text: String, options: RewriteOptions, providerName: String, model: String) -> String {
@@ -482,7 +570,9 @@ private actor RewriteCacheStore {
 
     private var entries: [String: CacheEntry] = [:]
     private var hasLoaded = false
+    private var persistTask: Task<Void, Never>?
     private let maxEntries = 300
+    private static let persistDelayNanoseconds: UInt64 = 350_000_000
 
     func lookup(for key: String) async -> String? {
         await loadIfNeeded()
@@ -493,19 +583,19 @@ private actor RewriteCacheStore {
         await loadIfNeeded()
 
         entries[key] = CacheEntry(key: key, value: value, createdAt: Date())
-        if entries.count > maxEntries {
-            let sorted = entries.values.sorted(by: { $0.createdAt > $1.createdAt })
-            entries = Dictionary(uniqueKeysWithValues: sorted.prefix(maxEntries).map { ($0.key, $0) })
+        if entries.count > maxEntries,
+           let oldestKey = entries.min(by: { $0.value.createdAt < $1.value.createdAt })?.key {
+            entries.removeValue(forKey: oldestKey)
         }
 
-        await persist()
+        schedulePersist()
     }
 
     private func loadIfNeeded() async {
         guard !hasLoaded else { return }
         hasLoaded = true
 
-        guard let data = try? Data(contentsOf: fileURL()) else {
+        guard let data = try? Data(contentsOf: fileURL(), options: [.mappedIfSafe]) else {
             return
         }
 
@@ -513,7 +603,17 @@ private actor RewriteCacheStore {
         decoder.dateDecodingStrategy = .iso8601
 
         if let saved = try? decoder.decode([CacheEntry].self, from: data) {
-            entries = Dictionary(uniqueKeysWithValues: saved.map { ($0.key, $0) })
+            let newest = saved.sorted(by: { $0.createdAt > $1.createdAt }).prefix(maxEntries)
+            entries = Dictionary(uniqueKeysWithValues: newest.map { ($0.key, $0) })
+        }
+    }
+
+    private func schedulePersist() {
+        persistTask?.cancel()
+        persistTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: Self.persistDelayNanoseconds)
+            guard !Task.isCancelled else { return }
+            await self?.persist()
         }
     }
 
@@ -521,8 +621,7 @@ private actor RewriteCacheStore {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
 
-        let sortedEntries = entries.values.sorted(by: { $0.createdAt > $1.createdAt })
-        guard let data = try? encoder.encode(sortedEntries) else {
+        guard let data = try? encoder.encode(Array(entries.values)) else {
             return
         }
 

@@ -24,7 +24,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 620, height: 470)
+        .frame(minWidth: 620, idealWidth: 660, maxWidth: 700, minHeight: 560, idealHeight: 620)
     }
 }
 
@@ -39,6 +39,7 @@ struct ProviderSettingsView: View {
     @State private var localStatusText: String?
 
     private static let cloudProviders: [LLMProviderType] = [.openai, .anthropic, .xai]
+    private static let defaultsPickerWidth: CGFloat = 240
 
     private enum SaveStatus: Equatable {
         case saved
@@ -58,94 +59,110 @@ struct ProviderSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                ForEach(Self.cloudProviders, id: \.self) { provider in
-                    apiKeyCard(for: provider)
-                }
-            } header: {
-                Text("API Keys")
-            }
-
-            Section("Local Models") {
-                if settings.selectedProvider != .local {
-                    HStack {
-                        Text("Not active")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Use Local") {
-                            settings.selectedProvider = .local
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                settingsSection(title: "API Keys") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(Self.cloudProviders, id: \.self) { provider in
+                            apiKeyCard(for: provider)
                         }
                     }
                 }
 
-                localConfigurationSection
+                settingsSection(title: "Local Models") {
+                    localConfigurationSection
+                }
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .formStyle(.grouped)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             loadStoredAPIKeys()
         }
     }
 
     private var localConfigurationSection: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 12) {
+            if settings.selectedProvider != .local {
+                HStack(alignment: .center, spacing: 10) {
+                    Text("Cloud provider is active.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button("Use Local") {
+                        settings.selectedProvider = .local
+                    }
+                }
+            }
+
             if settings.localModelPaths.isEmpty {
                 Text("No local models yet.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            }
+            } else {
+                HStack(spacing: 10) {
+                    Text("Selected model")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer(minLength: 0)
 
-            if !settings.localModelPaths.isEmpty {
-                Picker("Selected model", selection: $settings.selectedModel) {
-                    ForEach(settings.localModelPaths) { entry in
-                        Text(entry.modelName).tag(entry.modelName)
-                    }
-                }
-                .onChange(of: settings.selectedModel) { _, _ in
-                    RewriteEngine.shared.updateProvider()
-                }
-
-                if settings.selectedLocalModelPath != nil {
-                    HStack {
-                        Text(engine.isLocalModelLoaded ? "Model loaded in memory" : "Model not loaded")
+                    if settings.selectedProvider == .local {
+                        Picker("Selected model", selection: localSettingsModelBinding) {
+                            ForEach(settings.localModelPaths) { entry in
+                                Text(entry.modelName).tag(entry.modelName)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(maxWidth: 300)
+                    } else {
+                        Text(resolvedLocalModelSelection)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                        Spacer()
+                    }
+                }
+
+                if settings.selectedProvider == .local, settings.selectedLocalModelPath != nil {
+                    HStack(spacing: 10) {
+                        Text(isSelectedLocalModelLoaded ? "Loaded in memory" : "Not loaded")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
                         Button(localModelActionTitle) {
                             toggleLocalModelLoadStateFromSettings()
                         }
                         .disabled(engine.isUnloadingLocalModel || engine.isLoadingLocalModel || engine.isProcessing)
                     }
+
+                    Toggle("Keep loaded", isOn: $settings.keepLocalModelLoaded)
+                        .font(.footnote)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Add model")
                     .font(.subheadline)
                     .fontWeight(.semibold)
 
-                HStack(spacing: 8) {
-                    TextField("", text: $localModelName, prompt: Text("Model name"))
-                        .frame(width: 220)
-                        .textFieldStyle(.roundedBorder)
+                TextField("Model name", text: $localModelName)
+                    .textFieldStyle(.roundedBorder)
 
-                    TextField("", text: $localModelPath, prompt: Text("Model folder path"))
+                HStack(spacing: 8) {
+                    TextField("Model folder path", text: $localModelPath)
                         .textFieldStyle(.roundedBorder)
-                        .frame(minWidth: 260, maxWidth: .infinity)
-                        .layoutPriority(1)
+                        .frame(maxWidth: .infinity)
 
                     Button("Choose…") {
                         chooseLocalModelPath()
                     }
-                    .frame(width: 100)
+                }
 
+                HStack {
+                    Spacer(minLength: 0)
                     Button("Add") {
                         saveLocalModelPath()
                     }
                     .disabled(!canAddLocalModelPath)
-                    .frame(width: 72)
                 }
 
                 if let localStatusText {
@@ -162,47 +179,79 @@ struct ProviderSettingsView: View {
                         .fontWeight(.semibold)
 
                     ForEach(settings.localModelPaths) { entry in
-                        HStack(alignment: .top, spacing: 8) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                HStack(spacing: 6) {
-                                    Text(entry.modelName)
-                                        .font(.system(size: 13, weight: .semibold))
-                                    if isActiveLocalModel(entry) {
-                                        Text("Active")
-                                            .font(.caption2)
-                                            .foregroundStyle(.green)
-                                    }
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) {
+                                Text(entry.modelName)
+                                    .font(.system(size: 13, weight: .semibold))
+                                if isActiveLocalModel(entry) {
+                                    Text("Active")
+                                        .font(.caption2)
+                                        .foregroundStyle(.green)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.green.opacity(0.12), in: Capsule())
                                 }
-
-                                Text(entry.path)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                                    .truncationMode(.middle)
-                                    .textSelection(.enabled)
+                                Spacer(minLength: 0)
                             }
 
-                            Spacer(minLength: 0)
+                            Text(entry.path)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .truncationMode(.middle)
+                                .textSelection(.enabled)
 
-                            Button("Use") {
-                                settings.useLocalModelPath(entry)
-                                RewriteEngine.shared.updateProvider()
-                            }
-                            .disabled(isActiveLocalModel(entry))
+                            HStack(spacing: 8) {
+                                Button("Use") {
+                                    settings.useLocalModelPath(entry)
+                                }
+                                .disabled(isActiveLocalModel(entry))
 
-                            Button("Remove", role: .destructive) {
-                                settings.removeLocalModelPath(id: entry.id)
-                                RewriteEngine.shared.updateProvider()
+                                Button("Remove", role: .destructive) {
+                                    settings.removeLocalModelPath(id: entry.id)
+                                }
                             }
                         }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.primary.opacity(0.03))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.05), lineWidth: 1)
+                        )
                     }
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func settingsSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.primary.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+        )
     }
 
     private func apiKeyCard(for provider: LLMProviderType) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text(provider.displayName)
                     .font(.headline)
@@ -227,20 +276,27 @@ struct ProviderSettingsView: View {
                 }
             }
 
-            HStack(spacing: 8) {
-                Group {
-                    if visibleKeyProviders.contains(provider) {
-                        TextField("API key", text: apiKeyBinding(for: provider))
-                    } else {
-                        SecureField("API key", text: apiKeyBinding(for: provider))
-                    }
-                }
-                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("API key")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-                Button(visibleKeyProviders.contains(provider) ? "Hide" : "Show") {
-                    toggleKeyVisibility(for: provider)
+                HStack(spacing: 8) {
+                    Group {
+                        if visibleKeyProviders.contains(provider) {
+                            TextField("API key", text: apiKeyBinding(for: provider))
+                        } else {
+                            SecureField("API key", text: apiKeyBinding(for: provider))
+                        }
+                    }
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: .infinity)
+
+                    Button(visibleKeyProviders.contains(provider) ? "Hide" : "Show") {
+                        toggleKeyVisibility(for: provider)
+                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
             }
 
             HStack(spacing: 8) {
@@ -253,14 +309,13 @@ struct ProviderSettingsView: View {
                     deleteAPIKey(for: provider)
                 }
                 .disabled(!settings.hasAPIKey(for: provider))
-
-                if let saveStatus = saveStatusByProvider[provider] {
-                    Text(saveStatus.message)
-                        .font(.footnote)
-                        .foregroundStyle(statusColor(for: saveStatus))
-                }
-
                 Spacer()
+            }
+
+            if let saveStatus = saveStatusByProvider[provider] {
+                Text(saveStatus.message)
+                    .font(.footnote)
+                    .foregroundStyle(statusColor(for: saveStatus))
             }
 
             apiKeyHelpLink(for: provider)
@@ -268,7 +323,16 @@ struct ProviderSettingsView: View {
 
             providerDefaultsContent(for: provider)
         }
-        .padding(.vertical, 2)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.05), lineWidth: 1)
+        )
     }
 
     @ViewBuilder
@@ -283,23 +347,38 @@ struct ProviderSettingsView: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
 
-            Picker("Model", selection: modelBinding(for: provider)) {
-                ForEach(provider.availableModels, id: \.self) { model in
-                    Text(SettingsManager.displayModelName(model, for: provider)).tag(model)
+            HStack(spacing: 8) {
+                Text("Model")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Picker("Model", selection: modelBinding(for: provider)) {
+                    ForEach(provider.availableModels, id: \.self) { model in
+                        Text(SettingsManager.displayModelName(model, for: provider)).tag(model)
+                    }
                 }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: Self.defaultsPickerWidth)
             }
-            .pickerStyle(.menu)
 
             if provider == .openai,
                SettingsManager.isOpenAIReasoningModel(settings.modelDefault(for: provider)) {
-                Picker("Reasoning effort", selection: reasoningEffortBinding(for: provider)) {
-                    ForEach(OpenAIReasoningEffort.allCases, id: \.self) { effort in
-                        Text(effort.displayName).tag(effort)
+                HStack(spacing: 8) {
+                    Text("Reasoning effort")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Picker("Reasoning effort", selection: reasoningEffortBinding(for: provider)) {
+                        ForEach(OpenAIReasoningEffort.allCases, id: \.self) { effort in
+                            Text(effort.displayName).tag(effort)
+                        }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: Self.defaultsPickerWidth)
                 }
-                .pickerStyle(.menu)
             }
-
         }
     }
 
@@ -310,9 +389,31 @@ struct ProviderSettingsView: View {
             },
             set: { newValue in
                 settings.setModelDefault(newValue, for: provider)
-                if settings.selectedProvider == provider {
-                    RewriteEngine.shared.updateProvider()
-                }
+            }
+        )
+    }
+
+    private var resolvedLocalModelSelection: String {
+        guard let first = settings.localModelPaths.first?.modelName else {
+            return ""
+        }
+
+        if let matched = settings.localModelPaths.first(where: {
+            $0.modelName.caseInsensitiveCompare(settings.selectedModel) == .orderedSame
+        }) {
+            return matched.modelName
+        }
+
+        return first
+    }
+
+    private var localSettingsModelBinding: Binding<String> {
+        Binding(
+            get: {
+                resolvedLocalModelSelection
+            },
+            set: { newValue in
+                settings.selectedModel = newValue
             }
         )
     }
@@ -324,9 +425,6 @@ struct ProviderSettingsView: View {
             },
             set: { newValue in
                 settings.openAIReasoningEffort = newValue
-                if settings.selectedProvider == provider {
-                    RewriteEngine.shared.updateProvider()
-                }
             }
         )
     }
@@ -386,9 +484,6 @@ struct ProviderSettingsView: View {
             try settings.setAPIKey(key, for: provider)
             apiKeys[provider] = key
             saveStatusByProvider[provider] = .saved
-            if settings.selectedProvider == provider {
-                RewriteEngine.shared.updateProvider()
-            }
             clearStatusAfterDelay(for: provider)
         } catch {
             saveStatusByProvider[provider] = .error(error.localizedDescription)
@@ -400,9 +495,6 @@ struct ProviderSettingsView: View {
             try settings.deleteAPIKey(for: provider)
             apiKeys[provider] = ""
             saveStatusByProvider[provider] = .deleted
-            if settings.selectedProvider == provider {
-                RewriteEngine.shared.updateProvider()
-            }
             clearStatusAfterDelay(for: provider)
         } catch {
             saveStatusByProvider[provider] = .error(error.localizedDescription)
@@ -429,6 +521,12 @@ struct ProviderSettingsView: View {
         !localModelPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var isSelectedLocalModelLoaded: Bool {
+        guard engine.isLocalModelLoaded else { return false }
+        guard let loadedModel = engine.loadedLocalModelName else { return false }
+        return loadedModel.caseInsensitiveCompare(settings.selectedModel) == .orderedSame
+    }
+
     private func saveLocalModelPath() {
         let modelName = localModelName.trimmingCharacters(in: .whitespacesAndNewlines)
         let modelPath = localModelPath.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -442,7 +540,6 @@ struct ProviderSettingsView: View {
         localModelName = ""
         localModelPath = ""
         localStatusText = "Saved."
-        RewriteEngine.shared.updateProvider()
         clearLocalStatusAfterDelay()
     }
 
@@ -496,11 +593,11 @@ struct ProviderSettingsView: View {
     private var localModelActionTitle: String {
         if engine.isUnloadingLocalModel { return "Unloading…" }
         if engine.isLoadingLocalModel { return "Loading…" }
-        return engine.isLocalModelLoaded ? "Unload" : "Load"
+        return isSelectedLocalModelLoaded ? "Unload" : "Load"
     }
 
     private func toggleLocalModelLoadStateFromSettings() {
-        if engine.isLocalModelLoaded {
+        if isSelectedLocalModelLoaded {
             unloadLocalModelFromSettings()
         } else {
             loadLocalModelFromSettings()
@@ -523,6 +620,7 @@ struct ProviderSettingsView: View {
 
 struct BehaviorSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
+    @State private var promptEditorStyle: RewriteStyle = .rewrite
 
     var body: some View {
         Form {
@@ -544,15 +642,53 @@ struct BehaviorSettingsView: View {
                     HStack {
                         Text("Rewrite aggressiveness")
                         Spacer()
-                        Text(aggressivenessLabel)
+                        Text(aggressivenessValueLabel)
                             .foregroundStyle(.secondary)
                     }
 
-                    Slider(value: $settings.aggressiveness, in: 0...1, step: 0.05)
+                    Slider(value: $settings.aggressiveness, in: 0...1, step: 0.01)
                 }
             }
 
+            Section("System prompts") {
+                Picker("Edit style", selection: $promptEditorStyle) {
+                    ForEach(RewriteStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("System prompt")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    TextEditor(text: systemPromptEditorBinding)
+                        .font(.system(size: 12, weight: .regular, design: .monospaced))
+                        .frame(minHeight: 200)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                        )
+                }
+
+                HStack(spacing: 10) {
+                    Button("Reset selected to default") {
+                        settings.resetSystemPromptOverride(for: promptEditorStyle)
+                    }
+                    .disabled(!settings.hasSystemPromptOverride(for: promptEditorStyle))
+
+                    Text("Saved automatically.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text("Aggressiveness slider instructions are injected automatically at request time and are not editable here.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Runtime") {
+                Toggle("Keep local model loaded", isOn: $settings.keepLocalModelLoaded)
                 Toggle("Streaming response updates", isOn: $settings.streamingEnabled)
                 Toggle("Auto-copy after success", isOn: $settings.autoCopyEnabled)
                 Toggle("Auto-load clipboard on open", isOn: $settings.autoLoadClipboard)
@@ -570,13 +706,21 @@ struct BehaviorSettingsView: View {
         .formStyle(.grouped)
     }
 
-    private var aggressivenessLabel: String {
-        switch settings.aggressiveness {
-        case 0..<0.25: return "Minimal"
-        case 0.25..<0.55: return "Balanced"
-        case 0.55..<0.8: return "Strong"
-        default: return "Heavy"
-        }
+    private var aggressivenessValueLabel: String {
+        let clamped = min(max(settings.aggressiveness, 0), 1)
+        return "\(Int(round(clamped * 100)))%"
+    }
+
+    private var systemPromptEditorBinding: Binding<String> {
+        Binding(
+            get: {
+                settings.systemPromptOverride(for: promptEditorStyle) ??
+                settings.systemPrompt(for: promptEditorStyle)
+            },
+            set: { newValue in
+                settings.setSystemPromptOverride(newValue, for: promptEditorStyle)
+            }
+        )
     }
 }
 
@@ -628,7 +772,7 @@ struct HistorySettingsView: View {
 struct AboutView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Post Enhancer 2.0")
+            Text("Clipboard Refiner")
                 .font(.system(size: 24, weight: .semibold, design: .rounded))
 
             Text("Native macOS SwiftUI app for enhancing posts with cloud or local models.")

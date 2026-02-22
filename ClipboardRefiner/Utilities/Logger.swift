@@ -7,10 +7,14 @@ final class AppLogger {
     private let logger: Logger
     private let fileHandle: FileHandle?
     private let logFileURL: URL?
+    private let fileQueue: DispatchQueue
+    private let formatterQueue: DispatchQueue
     private let dateFormatter: DateFormatter
 
     private init() {
         logger = Logger(subsystem: "com.clipboardrefiner", category: "general")
+        fileQueue = DispatchQueue(label: "com.clipboardrefiner.logger.file", qos: .utility)
+        formatterQueue = DispatchQueue(label: "com.clipboardrefiner.logger.formatter")
 
         dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
@@ -33,7 +37,9 @@ final class AppLogger {
                 fileHandle?.seekToEndOfFile()
                 logFileURL = logURL
 
-                cleanOldLogs(in: logsDir)
+                fileQueue.async { [weak self] in
+                    self?.cleanOldLogs(in: logsDir)
+                }
             } catch {
                 fileHandle = nil
                 logFileURL = nil
@@ -46,7 +52,9 @@ final class AppLogger {
     }
 
     deinit {
-        try? fileHandle?.close()
+        fileQueue.sync {
+            try? fileHandle?.close()
+        }
     }
 
     private func cleanOldLogs(in directory: URL) {
@@ -71,15 +79,19 @@ final class AppLogger {
         guard let fileHandle = fileHandle,
               let data = (message + "\n").data(using: .utf8) else { return }
 
-        do {
-            try fileHandle.write(contentsOf: data)
-        } catch {
-            logger.warning("Failed to write to log file: \(error.localizedDescription)")
+        fileQueue.async { [logger] in
+            do {
+                try fileHandle.write(contentsOf: data)
+            } catch {
+                logger.warning("Failed to write to log file: \(error.localizedDescription)")
+            }
         }
     }
 
     private func formattedMessage(_ level: String, _ message: String, file: String, function: String, line: Int) -> String {
-        let timestamp = dateFormatter.string(from: Date())
+        let timestamp = formatterQueue.sync {
+            dateFormatter.string(from: Date())
+        }
         let fileName = (file as NSString).lastPathComponent
         return "[\(timestamp)] [\(level)] [\(fileName):\(line)] \(function) - \(message)"
     }

@@ -1,4 +1,41 @@
 import SwiftUI
+import AppKit
+
+private enum TextLayoutEstimator {
+    private static let bodyFont = NSFont.systemFont(ofSize: 13, weight: .regular)
+    private static let monoFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+
+    private static let bodyLineHeight = ceil(bodyFont.ascender - bodyFont.descender + bodyFont.leading)
+    private static let monoLineHeight = ceil(monoFont.ascender - monoFont.descender + monoFont.leading)
+    private static let bodyCharacterWidth = ("W" as NSString).size(withAttributes: [.font: bodyFont]).width
+    private static let monoCharacterWidth = ("W" as NSString).size(withAttributes: [.font: monoFont]).width
+
+    static func bodyHeight(for text: String, width: CGFloat) -> CGFloat {
+        estimatedHeight(for: text, width: width, lineHeight: bodyLineHeight, characterWidth: bodyCharacterWidth)
+    }
+
+    static func monoHeight(for text: String, width: CGFloat) -> CGFloat {
+        estimatedHeight(for: text, width: width, lineHeight: monoLineHeight, characterWidth: monoCharacterWidth)
+    }
+
+    private static func estimatedHeight(for text: String, width: CGFloat, lineHeight: CGFloat, characterWidth: CGFloat) -> CGFloat {
+        let safeWidth = max(1, width)
+        let safeCharacterWidth = max(1, characterWidth)
+        let maxColumns = max(1, Int(floor(safeWidth / safeCharacterWidth)))
+        let lines = wrappedLineCount(for: text, maxColumns: maxColumns)
+        return ceil(CGFloat(lines) * lineHeight)
+    }
+
+    private static func wrappedLineCount(for text: String, maxColumns: Int) -> Int {
+        guard !text.isEmpty else { return 1 }
+        let segments = text.split(separator: "\n", omittingEmptySubsequences: false)
+        var total = 0
+        for segment in segments {
+            total += max(1, Int(ceil(Double(segment.count) / Double(maxColumns))))
+        }
+        return max(total, 1)
+    }
+}
 
 // MARK: - Design System: "Warm Obsidian"
 // A refined, premium aesthetic with soft amber accents and smooth glass effects
@@ -189,6 +226,7 @@ struct TextBox: View {
     var isEditable: Bool = true
     var minHeight: CGFloat = 80
     var maxHeight: CGFloat = 300
+    var shouldMeasureHeight: Bool = true
     var font: Font = DS.Typography.bodyFont
 
     @State private var measuredHeight: CGFloat = 0
@@ -238,7 +276,7 @@ struct TextBox: View {
         .onHover { isHovering = $0 }
         .animation(DS.Animation.quick, value: isFocused)
         .animation(DS.Animation.micro, value: isHovering)
-        .background(measureText)
+        .background(shouldMeasureHeight ? measureText : nil)
     }
 
     private var measureText: some View {
@@ -252,16 +290,9 @@ struct TextBox: View {
 
     private func updateHeight(width: CGFloat) {
         guard width > 0 else { return }
-        let nsFont = NSFont.systemFont(ofSize: 13, weight: .regular)
         let textWidth = max(1, width - DS.Spacing.lg * 2)
         let measureText = text.isEmpty ? " " : text
-
-        let bounds = NSString(string: measureText).boundingRect(
-            with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: nsFont]
-        )
-        measuredHeight = ceil(bounds.height)
+        measuredHeight = TextLayoutEstimator.bodyHeight(for: measureText, width: textWidth)
     }
 }
 
@@ -816,17 +847,11 @@ struct DiffTextView: View {
 
     private func updateHeight(width: CGFloat, text: String) {
         guard width > 0 else { return }
-        let monoFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
         let textWidth = max(1, width - DS.Spacing.lg * 2)
         let measureText = text.isEmpty ? placeholder : text
         let safeText = measureText.isEmpty ? " " : measureText
 
-        let bounds = NSString(string: safeText).boundingRect(
-            with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading],
-            attributes: [.font: monoFont]
-        )
-        measuredHeight = ceil(bounds.height)
+        measuredHeight = TextLayoutEstimator.monoHeight(for: safeText, width: textWidth)
     }
 
     private func makeAttributedText() -> AttributedString {

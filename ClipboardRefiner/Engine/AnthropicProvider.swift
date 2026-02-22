@@ -20,16 +20,15 @@ final class AnthropicProvider: LLMProvider {
         streamHandler: @escaping (String) -> Void,
         completion: @escaping (Result<String, LLMError>) -> Void
     ) -> Cancellable {
-        let cancellable = URLSessionTaskCancellable()
-
         guard !apiKey.isEmpty else {
             completion(.failure(.invalidAPIKey))
-            return cancellable
+            return URLSessionTaskCancellable()
         }
 
+        let wrappedSourceText = options.wrappedUserSourceText(text)
         var userContent: [[String: Any]] = [[
             "type": "text",
-            "text": text
+            "text": wrappedSourceText
         ]]
 
         userContent.append(contentsOf: options.imageAttachments.map { image in
@@ -53,7 +52,7 @@ final class AnthropicProvider: LLMProvider {
                     "content": userContent
                 ]
             ],
-            "stream": false
+            "stream": options.streaming
         ]
 
         var request = URLRequest(url: endpoint)
@@ -62,14 +61,79 @@ final class AnthropicProvider: LLMProvider {
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         request.setValue(apiVersion, forHTTPHeaderField: "anthropic-version")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if options.streaming {
+            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        }
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         } catch {
             completion(.failure(.networkError(error)))
+            return URLSessionTaskCancellable()
+        }
+
+        if options.streaming {
+            let cancellable = TaskCancellable()
+            var accumulatedOutput = ""
+            var streamErrorMessage: String?
+            var streamStopReason: String?
+
+            ProviderHTTP.performSSE(
+                request: request,
+                cancellable: cancellable,
+                eventHandler: { _, data in
+                    guard data != "[DONE]" else { return }
+                    guard let payload = data.data(using: .utf8),
+                          let json = ProviderHTTP.decodeJSON(payload) else {
+                        return
+                    }
+
+                    if let streamError = Self.extractStreamError(from: json) {
+                        streamErrorMessage = streamError
+                    }
+                    if let stopReason = Self.extractStreamStopReason(from: json) {
+                        streamStopReason = stopReason
+                    }
+
+                    if let delta = Self.extractStreamDelta(from: json) {
+                        Self.mergeStreamOutput(delta, into: &accumulatedOutput, streamHandler: streamHandler)
+                    }
+
+                    if let snapshot = Self.extractStreamSnapshot(from: json) {
+                        Self.mergeStreamOutput(snapshot, into: &accumulatedOutput, streamHandler: streamHandler)
+                    }
+                },
+                completion: { result in
+                    switch result {
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success:
+                        guard !accumulatedOutput.isEmpty else {
+                            if let streamStopReason {
+                                switch streamStopReason {
+                                case "refusal":
+                                    completion(.failure(.serverError(400, "Anthropic returned refusal for this request.")))
+                                case "model_context_window_exceeded":
+                                    completion(.failure(.serverError(400, "Model context window exceeded. Shorten input or attachments.")))
+                                default:
+                                    completion(.failure(.invalidResponse))
+                                }
+                            } else if let streamErrorMessage {
+                                completion(.failure(.streamingError(streamErrorMessage)))
+                            } else {
+                                completion(.failure(.invalidResponse))
+                            }
+                            return
+                        }
+                        completion(.success(accumulatedOutput))
+                    }
+                }
+            )
+
             return cancellable
         }
 
+        let cancellable = URLSessionTaskCancellable()
         ProviderHTTP.perform(request: request, cancellable: cancellable) { result in
             switch result {
             case .failure(let error):
@@ -123,5 +187,82 @@ final class AnthropicProvider: LLMProvider {
         }
 
         return cancellable
+    }
+
+    private static func extractStreamDelta(from json: [String: Any]) -> String? {
+        guard let delta = json["delta"] as? [String: Any] else { return nil }
+
+        if let text = delta["text"] as? String, !text.isEmpty {
+            return text
+        }
+
+        if let textDelta = delta["delta"] as? String, !textDelta.isEmpty {
+            return textDelta
+        }
+
+        return nil
+    }
+
+    private static func extractStreamError(from json: [String: Any]) -> String? {
+        if let error = json["error"] as? [String: Any],
+           let message = error["message"] as? String,
+           !message.isEmpty {
+            return message
+        }
+
+        if let message = json["message"] as? String, !message.isEmpty {
+            return message
+        }
+
+        return nil
+    }
+
+    private static func extractStreamStopReason(from json: [String: Any]) -> String? {
+        if let stopReason = json["stop_reason"] as? String, !stopReason.isEmpty {
+            return stopReason
+        }
+
+        if let delta = json["delta"] as? [String: Any],
+           let stopReason = delta["stop_reason"] as? String,
+           !stopReason.isEmpty {
+            return stopReason
+        }
+
+        return nil
+    }
+
+    private static func extractStreamSnapshot(from json: [String: Any]) -> String? {
+        guard let content = json["content"] as? [[String: Any]] else {
+            return nil
+        }
+
+        let text = content
+            .filter { ($0["type"] as? String) == "text" }
+            .compactMap { $0["text"] as? String }
+            .joined()
+
+        return text.isEmpty ? nil : text
+    }
+
+    private static func mergeStreamOutput(
+        _ candidate: String,
+        into accumulated: inout String,
+        streamHandler: @escaping (String) -> Void
+    ) {
+        guard !candidate.isEmpty else { return }
+
+        let updatedValue: String
+        if candidate.hasPrefix(accumulated) {
+            guard candidate.count > accumulated.count else { return }
+            updatedValue = candidate
+        } else {
+            updatedValue = accumulated + candidate
+        }
+
+        guard updatedValue != accumulated else { return }
+        accumulated = updatedValue
+        ProviderHTTP.deliverOnMain {
+            streamHandler(updatedValue)
+        }
     }
 }

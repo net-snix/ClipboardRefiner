@@ -138,6 +138,8 @@ final class SettingsManager: ObservableObject {
         static let hasSeenOnboarding = "hasSeenOnboarding"
         static let offlineCacheEnabled = "offlineCacheEnabled"
         static let autoLoadClipboard = "autoLoadClipboard"
+        static let keepLocalModelLoaded = "keepLocalModelLoaded"
+        static let systemPromptOverrides = "systemPromptOverrides"
     }
 
     private enum ModelReconcileReason {
@@ -213,6 +215,12 @@ final class SettingsManager: ObservableObject {
         }
     }
 
+    @Published var keepLocalModelLoaded: Bool {
+        didSet {
+            defaults.set(keepLocalModelLoaded, forKey: Keys.keepLocalModelLoaded)
+        }
+    }
+
     @Published var aggressiveness: Double {
         didSet {
             defaults.set(aggressiveness, forKey: Keys.aggressiveness)
@@ -233,6 +241,7 @@ final class SettingsManager: ObservableObject {
 
     @Published private(set) var history: [HistoryEntry] = []
     @Published private(set) var localModelPaths: [LocalModelPathEntry] = []
+    @Published private(set) var systemPromptOverrides: [String: String] = [:]
 
     private init() {
         let providerRaw = defaults.string(forKey: Keys.provider) ?? LLMProviderType.openai.rawValue
@@ -269,6 +278,7 @@ final class SettingsManager: ObservableObject {
         self.historyEnabled = defaults.object(forKey: Keys.historyEnabled) as? Bool ?? true
         self.offlineCacheEnabled = defaults.object(forKey: Keys.offlineCacheEnabled) as? Bool ?? true
         self.autoLoadClipboard = defaults.object(forKey: Keys.autoLoadClipboard) as? Bool ?? true
+        self.keepLocalModelLoaded = defaults.object(forKey: Keys.keepLocalModelLoaded) as? Bool ?? true
         self.aggressiveness = defaults.object(forKey: Keys.aggressiveness) as? Double ?? 0.2
 
         let effortRaw = defaults.string(forKey: Keys.openAIReasoningEffort) ?? OpenAIReasoningEffort.none.rawValue
@@ -278,6 +288,7 @@ final class SettingsManager: ObservableObject {
 
         loadHistory()
         loadLocalModelPaths()
+        loadSystemPromptOverrides()
         reconcileModelSelection(triggeredBy: .provider)
     }
 
@@ -478,6 +489,45 @@ final class SettingsManager: ObservableObject {
         return json
     }
 
+    func systemPrompt(for style: RewriteStyle) -> String {
+        let key = style.rawValue
+        if let override = systemPromptOverrides[key],
+           !override.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return override
+        }
+        return style.systemPrompt
+    }
+
+    func systemPromptOverride(for style: RewriteStyle) -> String? {
+        let key = style.rawValue
+        guard let value = systemPromptOverrides[key],
+              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return value
+    }
+
+    func hasSystemPromptOverride(for style: RewriteStyle) -> Bool {
+        systemPromptOverride(for: style) != nil
+    }
+
+    func setSystemPromptOverride(_ prompt: String, for style: RewriteStyle) {
+        let key = style.rawValue
+        if prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            systemPromptOverrides.removeValue(forKey: key)
+        } else {
+            systemPromptOverrides[key] = prompt
+        }
+        saveSystemPromptOverrides()
+    }
+
+    func resetSystemPromptOverride(for style: RewriteStyle) {
+        let key = style.rawValue
+        guard systemPromptOverrides[key] != nil else { return }
+        systemPromptOverrides.removeValue(forKey: key)
+        saveSystemPromptOverrides()
+    }
+
     private func loadHistory() {
         guard let data = defaults.data(forKey: Keys.history) else { return }
 
@@ -487,6 +537,29 @@ final class SettingsManager: ObservableObject {
         if let entries = try? decoder.decode([HistoryEntry].self, from: data) {
             history = entries
         }
+    }
+
+    private func loadSystemPromptOverrides() {
+        guard let raw = defaults.dictionary(forKey: Keys.systemPromptOverrides) else {
+            systemPromptOverrides = [:]
+            return
+        }
+
+        let validKeys = Set(RewriteStyle.allCases.map(\.rawValue))
+        let decoded = raw.reduce(into: [String: String]()) { partialResult, pair in
+            guard validKeys.contains(pair.key),
+                  let value = pair.value as? String,
+                  !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return
+            }
+            partialResult[pair.key] = value
+        }
+
+        systemPromptOverrides = decoded
+    }
+
+    private func saveSystemPromptOverrides() {
+        defaults.set(systemPromptOverrides, forKey: Keys.systemPromptOverrides)
     }
 
     private func saveHistory() {
@@ -609,12 +682,22 @@ final class SettingsManager: ObservableObject {
         case .openai, .anthropic, .xai:
             let preferredModel = storedModelPreference(for: selectedProvider) ?? selectedProvider.defaultModel
 
+            if reason == .provider {
+                let normalizedPreferred = Self.normalizedModel(preferredModel, for: selectedProvider) ?? preferredModel
+                let resolvedPreferred = selectedProvider.availableModels.contains(normalizedPreferred)
+                    ? normalizedPreferred
+                    : selectedProvider.defaultModel
+                persistModelPreference(resolvedPreferred, for: selectedProvider)
+                // Avoid cascading publish when provider picker changes.
+                return
+            }
+
             let candidateModel: String
             switch reason {
-            case .provider:
-                candidateModel = preferredModel
             case .selectedModel, .localModelPaths:
                 candidateModel = selectedModel
+            case .provider:
+                return
             }
 
             var resolvedModel = Self.normalizedModel(candidateModel, for: selectedProvider) ?? candidateModel

@@ -25,14 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func openMenuBar(withPrefilledText text: String, action: String = "rewrite") {
         let openAction = { [weak self] in
             guard let self else { return }
-
-            setupMenuBar()
-
-            if self.popover.isShown {
-                NSApp.activate(ignoringOtherApps: true)
-            } else {
-                self.showPopover(nil, shouldActivate: true)
-            }
+            self.openMainWindow()
 
             DispatchQueue.main.async {
                 NotificationCenter.default.post(
@@ -51,27 +44,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupMenuBar()
         setupServices()
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppDidResignActive),
-            name: NSApplication.didResignActiveNotification,
-            object: nil
-        )
-        NSWorkspace.shared.notificationCenter.addObserver(
-            self,
-            selector: #selector(handleWorkspaceDidActivateApp),
-            name: NSWorkspace.didActivateApplicationNotification,
-            object: nil
-        )
 
         AppLogger.shared.info("Clipboard Refiner launched")
 
         if !SettingsManager.shared.hasSeenOnboarding {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                self?.showOnboarding()
-            }
+            SettingsManager.shared.hasSeenOnboarding = true
         } else if !SettingsManager.shared.hasAPIKey(for: SettingsManager.shared.selectedProvider) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.showSettings()
@@ -170,15 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateActivationPolicy() {
-        let hasSettings = settingsWindow != nil
-        let isMenuVisible = popover.isShown
-        AppLogger.shared.info("Updating activation policy. Settings: \(hasSettings), Menu: \(isMenuVisible)")
-        
-        if hasSettings || isMenuVisible {
-            NSApp.setActivationPolicy(.accessory)
-        } else {
-            NSApp.setActivationPolicy(.prohibited)
-        }
+        NSApp.setActivationPolicy(.regular)
     }
 
     private func startOutsideClickMonitoring() {
@@ -254,7 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showSettings() {
         AppLogger.shared.info("Showing settings window")
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
 
         if let window = settingsWindow {
             AppLogger.shared.info("Settings window already exists, ordering front")
@@ -295,6 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showOnboarding() {
         guard let screen = NSScreen.main,
+              let statusItem,
               let button = statusItem.button,
               let buttonWindow = button.window else {
             return
@@ -339,6 +310,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showSettings()
             }
         }
+    }
+
+    private func openMainWindow() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+
+        let candidate = NSApp.windows.first(where: { $0 != settingsWindow && $0.isVisible })
+            ?? NSApp.windows.first(where: { $0 != settingsWindow })
+
+        candidate?.makeKeyAndOrderFront(nil)
     }
 }
 

@@ -52,7 +52,27 @@ struct RewriteClipboardIntent: AppIntent {
             throw RewriteClipboardError.emptyClipboard
         }
 
-        let result = await withCheckedContinuation { continuation in
+        let result: Result<String, LLMError> = await withCheckedContinuation { continuation in
+            let timeout: UInt64 = 60_000_000_000
+            var continuationFinished = false
+            let lock = NSLock()
+
+            func resolve(_ result: Result<String, LLMError>) {
+                lock.lock()
+                defer { lock.unlock() }
+                guard !continuationFinished else { return }
+                continuationFinished = true
+                continuation.resume(returning: result)
+            }
+
+            let timeoutTask = Task {
+                do {
+                    try await Task.sleep(nanoseconds: timeout)
+                    RewriteEngine.shared.cancel()
+                    resolve(.failure(.networkError(URLError(.timedOut))))
+                } catch {}
+            }
+
             let options = RewriteOptions(
                 style: style.toRewriteStyle,
                 aggressiveness: SettingsManager.shared.aggressiveness,
@@ -64,7 +84,8 @@ struct RewriteClipboardIntent: AppIntent {
                 options: options,
                 streamHandler: { _ in },
                 completion: { result in
-                    continuation.resume(returning: result)
+                    timeoutTask.cancel()
+                    resolve(result)
                 }
             )
         }
