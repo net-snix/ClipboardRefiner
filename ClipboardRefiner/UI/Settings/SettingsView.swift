@@ -263,7 +263,7 @@ struct ProviderSettingsView: View {
                 } else {
                     Label("Missing", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(DS.Colors.warning)
                 }
 
                 Spacer()

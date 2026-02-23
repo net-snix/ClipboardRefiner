@@ -1,0 +1,24 @@
+{
+  "source": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/PopupWindow/PopupView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "STYLE",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 154
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cancel",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 376
+        }
+      }
+    ]
+  },
+  "version": 1
+}

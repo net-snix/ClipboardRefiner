@@ -1,0 +1,12 @@
+{
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/App/ClipboardRefinerApp.swift" : {
+    "abi-baseline-json" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/x86_64/ClipboardRefiner.abi.json",
+    "const-values" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/x86_64/ClipboardRefiner-primary.swiftconstvalues",
+    "dependencies" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/x86_64/ClipboardRefiner-primary.d",
+    "diagnostics" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/x86_64/ClipboardRefiner-primary.dia",
+    "objc-header" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/x86_64/ClipboardRefiner-Swift.h",
+    "swiftdoc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/x86_64/ClipboardRefiner.swiftdoc",
+    "swiftmodule" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/x86_64/ClipboardRefiner.swiftmodule",
+    "swiftsourceinfo" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/x86_64/ClipboardRefiner.swiftsourceinfo"
+  }
+}

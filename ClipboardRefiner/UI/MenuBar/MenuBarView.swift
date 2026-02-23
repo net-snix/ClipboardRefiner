@@ -186,31 +186,21 @@ struct MenuBarView: View {
                 .pickerStyle(.segmented)
 
                 HStack(alignment: .top, spacing: DS.Spacing.md) {
-                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                        Text("MODEL")
-                            .font(DS.Typography.microFont)
-                            .tracking(0.8)
-                            .foregroundStyle(DS.Colors.textTertiary)
-
+                    controlColumn("MODEL") {
                         modelControl
                     }
-                    .frame(
-                        maxWidth: settings.selectedProvider == .local ? 420 : 360,
-                        alignment: .leading
-                    )
 
-                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                        Text("SKILL")
-                            .font(DS.Typography.microFont)
-                            .tracking(0.8)
-                            .foregroundStyle(DS.Colors.textTertiary)
+                    if showsOpenAIReasoningEffort {
+                        controlColumn("REASONING") {
+                            reasoningEffortControl
+                        }
+                    }
 
+                    controlColumn("SKILL") {
                         skillControl
                     }
-                    .frame(width: 260, alignment: .leading)
-
-                    Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .glassMorph(id: "controls", namespace: glassNamespace)
@@ -269,7 +259,7 @@ struct MenuBarView: View {
             }
             .labelsHidden()
             .pickerStyle(.menu)
-            .frame(maxWidth: 320, alignment: .leading)
+            .frame(width: 200, alignment: .leading)
         }
     }
 
@@ -334,7 +324,37 @@ struct MenuBarView: View {
         }
         .labelsHidden()
         .pickerStyle(.menu)
-        .frame(maxWidth: 240, alignment: .leading)
+        .frame(width: 220, alignment: .leading)
+    }
+
+    private var reasoningEffortControl: some View {
+        Picker("Reasoning effort", selection: $settings.openAIReasoningEffort) {
+            ForEach(OpenAIReasoningEffort.allCases, id: \.self) { effort in
+                Text(effort.displayName).tag(effort)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .frame(width: 170, alignment: .leading)
+    }
+
+    private var showsOpenAIReasoningEffort: Bool {
+        guard settings.selectedProvider == .openai else { return false }
+        return SettingsManager.isOpenAIReasoningModel(resolvedCloudModelSelection(for: .openai))
+    }
+
+    private func controlColumn<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            Text(title)
+                .font(DS.Typography.microFont)
+                .tracking(0.8)
+                .foregroundStyle(DS.Colors.textTertiary)
+            content()
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var composerSection: some View {

@@ -1,0 +1,24 @@
+{
+  "source": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/Onboarding/OnboardingArrowView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Click here to get started",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 23
+        }
+      },
+      {
+        "comment": "",
+        "key": "Tap anywhere to dismiss",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 27
+        }
+      }
+    ]
+  },
+  "version": 1
+}

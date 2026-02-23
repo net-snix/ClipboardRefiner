@@ -37,8 +37,8 @@ private enum TextLayoutEstimator {
     }
 }
 
-// MARK: - Design System: "Warm Obsidian"
-// A refined, premium aesthetic with soft amber accents and smooth glass effects
+// MARK: - Design System: "Cool Obsidian"
+// A refined, premium aesthetic with cool blue accents and smooth glass effects
 
 enum DS {
     // MARK: - Spacing Scale
@@ -74,10 +74,10 @@ enum DS {
 
     // MARK: - Colors
     enum Colors {
-        // Primary accent - warm amber/gold
-        static let accent = Color(red: 0.96, green: 0.72, blue: 0.26)
-        static let accentSubtle = Color(red: 0.96, green: 0.72, blue: 0.26).opacity(0.15)
-        static let accentGlow = Color(red: 1.0, green: 0.78, blue: 0.36)
+        // Primary accent - electric blue
+        static let accent = Color(red: 0.18, green: 0.55, blue: 0.98)
+        static let accentSubtle = Color(red: 0.18, green: 0.55, blue: 0.98).opacity(0.15)
+        static let accentGlow = Color(red: 0.38, green: 0.70, blue: 1.0)
 
         // Secondary accent - cool slate blue
         static let secondary = Color(red: 0.45, green: 0.55, blue: 0.72)
@@ -90,8 +90,8 @@ enum DS {
         // Semantic colors
         static let success = Color(red: 0.35, green: 0.78, blue: 0.55)
         static let successSubtle = Color(red: 0.35, green: 0.78, blue: 0.55).opacity(0.12)
-        static let warning = Color(red: 0.95, green: 0.65, blue: 0.25)
-        static let warningSubtle = Color(red: 0.95, green: 0.65, blue: 0.25).opacity(0.12)
+        static let warning = Color(red: 0.88, green: 0.38, blue: 0.52)
+        static let warningSubtle = Color(red: 0.88, green: 0.38, blue: 0.52).opacity(0.12)
         static let error = Color(red: 0.92, green: 0.42, blue: 0.42)
         static let errorSubtle = Color(red: 0.92, green: 0.42, blue: 0.42).opacity(0.12)
 

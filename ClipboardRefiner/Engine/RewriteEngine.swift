@@ -403,16 +403,23 @@ final class RewriteEngine: ObservableObject {
             return
         }
 
-        guard let modelPath = settings.selectedLocalModelPath else {
+        let localModelName = settings.modelDefault(for: .local)
+        guard !localModelName.isEmpty else {
             let error = LLMError.localModelUnavailable("Add a local model path for this model in Provider settings.")
             self.error = error
             completion(.failure(error))
             return
         }
 
-        let selectedModel = settings.selectedModel
+        guard let modelPath = settings.localModelPath(for: localModelName) else {
+            let error = LLMError.localModelUnavailable("Add a local model path for this model in Provider settings.")
+            self.error = error
+            completion(.failure(error))
+            return
+        }
+
         if isLocalModelLoaded,
-           loadedLocalModelName?.caseInsensitiveCompare(selectedModel) == .orderedSame {
+           loadedLocalModelName?.caseInsensitiveCompare(localModelName) == .orderedSame {
             completion(.success(()))
             return
         }
@@ -425,7 +432,7 @@ final class RewriteEngine: ObservableObject {
 
             let semaphore = DispatchSemaphore(value: 0)
             var loadResult: Result<Void, LLMError> = .success(())
-            LocalModelProvider.preloadToMemory(modelName: selectedModel, modelPath: modelPath) { result in
+            LocalModelProvider.preloadToMemory(modelName: localModelName, modelPath: modelPath) { result in
                 loadResult = result
                 semaphore.signal()
             }
@@ -437,7 +444,7 @@ final class RewriteEngine: ObservableObject {
                 switch loadResult {
                 case .success:
                     self.isLocalModelLoaded = true
-                    self.loadedLocalModelName = selectedModel
+                    self.loadedLocalModelName = localModelName
                     completion(.success(()))
                 case .failure(let error):
                     self.error = error
@@ -448,8 +455,23 @@ final class RewriteEngine: ObservableObject {
     }
 
     var hasValidProvider: Bool {
-        updateProvider()
-        return provider != nil
+        let settings = SettingsManager.shared
+        let selectedProvider = settings.selectedProvider
+
+        switch selectedProvider {
+        case .local:
+            let localModelName = settings.modelDefault(for: .local)
+            guard !localModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return false
+            }
+            return settings.localModelPath(for: localModelName) != nil
+
+        case .openai, .anthropic, .xai:
+            guard let apiKey = settings.apiKey(for: selectedProvider) else {
+                return false
+            }
+            return !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 
     private func deliverOnMain(_ action: @escaping () -> Void) {

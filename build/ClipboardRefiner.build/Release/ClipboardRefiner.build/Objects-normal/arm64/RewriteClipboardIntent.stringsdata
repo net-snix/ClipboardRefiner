@@ -1,0 +1,100 @@
+{
+  "source": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Rewrite Style",
+        "location": {
+          "startingColumn": 71,
+          "startingLine": 13
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rewrite",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 16
+        }
+      },
+      {
+        "comment": "",
+        "key": "Shorter",
+        "location": {
+          "startingColumn": 19,
+          "startingLine": 17
+        }
+      },
+      {
+        "comment": "",
+        "key": "More Formal",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 18
+        }
+      },
+      {
+        "comment": "",
+        "key": "More Casual",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 19
+        }
+      },
+      {
+        "comment": "",
+        "key": "Less Cringe",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 20
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enhance X post",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 21
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enhance AI prompt",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 22
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rewrite Clipboard",
+        "location": {
+          "startingColumn": 49,
+          "startingLine": 39
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rewrites the current clipboard content using AI",
+        "location": {
+          "startingColumn": 48,
+          "startingLine": 40
+        }
+      },
+      {
+        "comment": "",
+        "key": "Style"
+      },
+      {
+        "comment": "",
+        "key": "Rewrite Clipboard",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 111
+        }
+      }
+    ]
+  },
+  "version": 1
+}

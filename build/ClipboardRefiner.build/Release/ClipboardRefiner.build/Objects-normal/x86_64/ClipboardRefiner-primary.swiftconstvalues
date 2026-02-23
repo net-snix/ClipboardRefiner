@@ -1,0 +1,813 @@
+[
+  {
+    "typeName": "ClipboardRefiner.RewriteStyleAppEnum",
+    "mangledTypeName": "16ClipboardRefiner19RewriteStyleAppEnumO",
+    "kind": "enum",
+    "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+    "line": 4,
+    "conformances": [
+      "Swift.Equatable",
+      "Swift.Hashable",
+      "Swift.RawRepresentable",
+      "AppIntents.AppEnum",
+      "AppIntents.AppValue",
+      "AppIntents.StaticDisplayRepresentable",
+      "AppIntents.PersistentlyIdentifiable",
+      "AppIntents.TypeDisplayRepresentable",
+      "AppIntents._IntentValue",
+      "Swift.Sendable",
+      "AppIntents.CaseDisplayRepresentable",
+      "Swift.SendableMetatype",
+      "Foundation.CustomLocalizedStringResourceConvertible",
+      "Swift.CaseIterable",
+      "Swift.BitwiseCopyable"
+    ],
+    "allConformances": [
+      {
+        "protocolName": "Swift.Equatable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.Hashable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.RawRepresentable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents.AppEnum",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents.AppValue",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents.StaticDisplayRepresentable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents.PersistentlyIdentifiable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents.TypeDisplayRepresentable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents._IntentValue",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.Sendable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents.CaseDisplayRepresentable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.SendableMetatype",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Foundation.CustomLocalizedStringResourceConvertible",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.CaseIterable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.BitwiseCopyable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      }
+    ],
+    "associatedTypeAliases": [
+      {
+        "typeAliasName": "RawValue",
+        "substitutedTypeName": "Swift.String",
+        "substitutedMangledTypeName": "SS"
+      },
+      {
+        "typeAliasName": "ValueType",
+        "substitutedTypeName": "ClipboardRefiner.RewriteStyleAppEnum",
+        "substitutedMangledTypeName": "16ClipboardRefiner19RewriteStyleAppEnumO"
+      },
+      {
+        "typeAliasName": "UnwrappedType",
+        "substitutedTypeName": "ClipboardRefiner.RewriteStyleAppEnum",
+        "substitutedMangledTypeName": "16ClipboardRefiner19RewriteStyleAppEnumO"
+      },
+      {
+        "typeAliasName": "Specification",
+        "substitutedTypeName": "some AppIntents.ResolverSpecification",
+        "substitutedMangledTypeName": "10AppIntents0A4EnumPAAE28defaultResolverSpecificationQrvpZQOy16ClipboardRefiner012RewriteStyleaC0O_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.ResolverSpecification"
+        ],
+        "opaqueTypeSameTypeRequirements": []
+      },
+      {
+        "typeAliasName": "AllCases",
+        "substitutedTypeName": "Swift.Array<ClipboardRefiner.RewriteStyleAppEnum>",
+        "substitutedMangledTypeName": "Say16ClipboardRefiner19RewriteStyleAppEnumOG"
+      }
+    ],
+    "properties": [
+      {
+        "label": "typeDisplayRepresentation",
+        "type": "AppIntents.TypeDisplayRepresentation",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 13,
+        "valueKind": "RawLiteral",
+        "value": "Rewrite Style"
+      },
+      {
+        "label": "caseDisplayRepresentations",
+        "type": "Swift.Dictionary<ClipboardRefiner.RewriteStyleAppEnum, AppIntents.DisplayRepresentation>",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 15,
+        "valueKind": "Dictionary",
+        "value": [
+          {
+            "key": {
+              "valueKind": "Enum",
+              "value": {
+                "name": "rewrite"
+              }
+            },
+            "value": {
+              "valueKind": "RawLiteral",
+              "value": "Rewrite"
+            }
+          },
+          {
+            "key": {
+              "valueKind": "Enum",
+              "value": {
+                "name": "shorter"
+              }
+            },
+            "value": {
+              "valueKind": "RawLiteral",
+              "value": "Shorter"
+            }
+          },
+          {
+            "key": {
+              "valueKind": "Enum",
+              "value": {
+                "name": "formal"
+              }
+            },
+            "value": {
+              "valueKind": "RawLiteral",
+              "value": "More Formal"
+            }
+          },
+          {
+            "key": {
+              "valueKind": "Enum",
+              "value": {
+                "name": "casual"
+              }
+            },
+            "value": {
+              "valueKind": "RawLiteral",
+              "value": "More Casual"
+            }
+          },
+          {
+            "key": {
+              "valueKind": "Enum",
+              "value": {
+                "name": "lessCringe"
+              }
+            },
+            "value": {
+              "valueKind": "RawLiteral",
+              "value": "Less Cringe"
+            }
+          },
+          {
+            "key": {
+              "valueKind": "Enum",
+              "value": {
+                "name": "xComReach"
+              }
+            },
+            "value": {
+              "valueKind": "RawLiteral",
+              "value": "Enhance X post"
+            }
+          },
+          {
+            "key": {
+              "valueKind": "Enum",
+              "value": {
+                "name": "promptEnhance"
+              }
+            },
+            "value": {
+              "valueKind": "RawLiteral",
+              "value": "Enhance AI prompt"
+            }
+          }
+        ]
+      },
+      {
+        "label": "toRewriteStyle",
+        "type": "ClipboardRefiner.RewriteStyle",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "false",
+        "isComputed": "true",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 25,
+        "valueKind": "Runtime"
+      },
+      {
+        "label": "allCases",
+        "type": "Swift.Array<ClipboardRefiner.RewriteStyleAppEnum>",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "true",
+        "valueKind": "Array",
+        "value": [
+          {
+            "valueKind": "Enum",
+            "value": {
+              "name": "rewrite"
+            }
+          },
+          {
+            "valueKind": "Enum",
+            "value": {
+              "name": "shorter"
+            }
+          },
+          {
+            "valueKind": "Enum",
+            "value": {
+              "name": "formal"
+            }
+          },
+          {
+            "valueKind": "Enum",
+            "value": {
+              "name": "casual"
+            }
+          },
+          {
+            "valueKind": "Enum",
+            "value": {
+              "name": "lessCringe"
+            }
+          },
+          {
+            "valueKind": "Enum",
+            "value": {
+              "name": "xComReach"
+            }
+          },
+          {
+            "valueKind": "Enum",
+            "value": {
+              "name": "promptEnhance"
+            }
+          }
+        ]
+      },
+      {
+        "label": "rawValue",
+        "type": "Swift.String",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "false",
+        "isComputed": "true",
+        "valueKind": "Runtime"
+      }
+    ],
+    "cases": [
+      {
+        "name": "rewrite",
+        "rawValue": "rewrite"
+      },
+      {
+        "name": "shorter",
+        "rawValue": "shorter"
+      },
+      {
+        "name": "formal",
+        "rawValue": "formal"
+      },
+      {
+        "name": "casual",
+        "rawValue": "casual"
+      },
+      {
+        "name": "lessCringe",
+        "rawValue": "lessCringe"
+      },
+      {
+        "name": "xComReach",
+        "rawValue": "xComReach"
+      },
+      {
+        "name": "promptEnhance",
+        "rawValue": "promptEnhance"
+      }
+    ]
+  },
+  {
+    "typeName": "ClipboardRefiner.RewriteClipboardIntent",
+    "mangledTypeName": "16ClipboardRefiner07RewriteA6IntentV",
+    "kind": "struct",
+    "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+    "line": 38,
+    "conformances": [
+      "AppIntents.AppIntent",
+      "AppIntents.PersistentlyIdentifiable",
+      "AppIntents._SupportsAppDependencies",
+      "Swift.Sendable",
+      "Swift.SendableMetatype"
+    ],
+    "allConformances": [
+      {
+        "protocolName": "AppIntents.AppIntent",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents.PersistentlyIdentifiable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "AppIntents._SupportsAppDependencies",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.Sendable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.SendableMetatype",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      }
+    ],
+    "associatedTypeAliases": [
+      {
+        "typeAliasName": "PerformResult",
+        "substitutedTypeName": "some AppIntents.ReturnsValue<Swift.String>",
+        "substitutedMangledTypeName": "16ClipboardRefiner07RewriteA6IntentV7performQryYaKFQOy_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.ReturnsValue"
+        ],
+        "opaqueTypeSameTypeRequirements": [
+          {
+            "typeAliasName": "AppIntents.IntentResult.Value",
+            "substitutedTypeName": "Swift.String",
+            "substitutedMangledTypeName": "SS"
+          }
+        ]
+      },
+      {
+        "typeAliasName": "SummaryContent",
+        "substitutedTypeName": "some AppIntents.ParameterSummary",
+        "substitutedMangledTypeName": "16ClipboardRefiner07RewriteA6IntentV16parameterSummaryQrvpZQOy_Qo_",
+        "opaqueTypeProtocolRequirements": [
+          "AppIntents.ParameterSummary"
+        ],
+        "opaqueTypeSameTypeRequirements": []
+      }
+    ],
+    "properties": [
+      {
+        "label": "_style",
+        "type": "AppIntents.IntentParameter<ClipboardRefiner.RewriteStyleAppEnum>",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "false",
+        "isComputed": "false",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 43,
+        "valueKind": "InitCall",
+        "value": {
+          "type": "AppIntents.IntentParameter<ClipboardRefiner.RewriteStyleAppEnum>",
+          "arguments": [
+            {
+              "label": "title",
+              "type": "Foundation.LocalizedStringResource",
+              "valueKind": "RawLiteral",
+              "value": "Style"
+            },
+            {
+              "label": "description",
+              "type": "Swift.Optional<Foundation.LocalizedStringResource>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "default",
+              "type": "Swift.Optional<ClipboardRefiner.RewriteStyleAppEnum>",
+              "valueKind": "Enum",
+              "value": {
+                "name": "rewrite"
+              }
+            },
+            {
+              "label": "requestValueDialog",
+              "type": "Swift.Optional<AppIntents.IntentDialog>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "requestDisambiguationDialog",
+              "type": "Swift.Optional<AppIntents.IntentDialog>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "inputConnectionBehavior",
+              "type": "AppIntents.InputConnectionBehavior",
+              "valueKind": "Runtime"
+            },
+            {
+              "label": "supportedValues",
+              "type": "Swift.Array<ClipboardRefiner.RewriteStyleAppEnum>",
+              "valueKind": "Runtime"
+            }
+          ]
+        }
+      },
+      {
+        "label": "title",
+        "type": "Foundation.LocalizedStringResource",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 39,
+        "valueKind": "RawLiteral",
+        "value": "Rewrite Clipboard"
+      },
+      {
+        "label": "description",
+        "type": "AppIntents.IntentDescription",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "false",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 40,
+        "valueKind": "RawLiteral",
+        "value": "Rewrites the current clipboard content using AI"
+      },
+      {
+        "label": "style",
+        "type": "ClipboardRefiner.RewriteStyleAppEnum",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "false",
+        "isComputed": "true",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 43,
+        "valueKind": "InitCall",
+        "value": {
+          "type": "AppIntents.IntentParameter<ClipboardRefiner.RewriteStyleAppEnum>",
+          "arguments": [
+            {
+              "label": "title",
+              "type": "Foundation.LocalizedStringResource",
+              "valueKind": "RawLiteral",
+              "value": "Style"
+            },
+            {
+              "label": "description",
+              "type": "Swift.Optional<Foundation.LocalizedStringResource>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "default",
+              "type": "Swift.Optional<ClipboardRefiner.RewriteStyleAppEnum>",
+              "valueKind": "Enum",
+              "value": {
+                "name": "rewrite"
+              }
+            },
+            {
+              "label": "requestValueDialog",
+              "type": "Swift.Optional<AppIntents.IntentDialog>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "requestDisambiguationDialog",
+              "type": "Swift.Optional<AppIntents.IntentDialog>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            },
+            {
+              "label": "inputConnectionBehavior",
+              "type": "AppIntents.InputConnectionBehavior",
+              "valueKind": "Runtime"
+            },
+            {
+              "label": "supportedValues",
+              "type": "Swift.Array<ClipboardRefiner.RewriteStyleAppEnum>",
+              "valueKind": "Runtime"
+            }
+          ]
+        },
+        "propertyWrappers": [
+          {
+            "type": "AppIntents.IntentParameter",
+            "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+            "line": 42,
+            "arguments": [
+              {
+                "label": "title",
+                "type": "Foundation.LocalizedStringResource",
+                "valueKind": "RawLiteral",
+                "value": "Style"
+              },
+              {
+                "label": "default",
+                "type": "Swift.Optional<ClipboardRefiner.RewriteStyleAppEnum>",
+                "valueKind": "Enum",
+                "value": {
+                  "name": "rewrite"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "$style",
+        "type": "AppIntents.IntentParameter<ClipboardRefiner.RewriteStyleAppEnum>",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "false",
+        "isComputed": "true",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 43,
+        "valueKind": "Runtime"
+      },
+      {
+        "label": "parameterSummary",
+        "type": "some AppIntents.ParameterSummary",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "true",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 45,
+        "valueKind": "InitCall",
+        "value": {
+          "type": "AppIntents.IntentParameterSummary<ClipboardRefiner.RewriteClipboardIntent>",
+          "arguments": [
+            {
+              "label": "",
+              "type": "AppIntents.ParameterSummaryString<ClipboardRefiner.RewriteClipboardIntent>",
+              "valueKind": "InterpolatedStringLiteral",
+              "value": {
+                "segments": [
+                  {
+                    "valueKind": "RawLiteral",
+                    "value": "Rewrite clipboard with "
+                  },
+                  {
+                    "valueKind": "KeyPath",
+                    "value": {
+                      "path": "$style",
+                      "rootType": "ClipboardRefiner.RewriteClipboardIntent",
+                      "components": [
+                        {
+                          "label": "$style",
+                          "type": "AppIntents.IntentParameter<ClipboardRefiner.RewriteStyleAppEnum>"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "valueKind": "RawLiteral",
+                    "value": ""
+                  }
+                ]
+              }
+            },
+            {
+              "label": "table",
+              "type": "Swift.Optional<Swift.String>",
+              "valueKind": "RawLiteral",
+              "value": "nil"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "typeName": "ClipboardRefiner.ClipboardRefinerShortcuts",
+    "mangledTypeName": "16ClipboardRefiner0aB9ShortcutsV",
+    "kind": "struct",
+    "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+    "line": 100,
+    "conformances": [
+      "AppIntents.AppShortcutsProvider",
+      "Swift.Sendable",
+      "Swift.SendableMetatype",
+      "Swift.BitwiseCopyable"
+    ],
+    "allConformances": [
+      {
+        "protocolName": "AppIntents.AppShortcutsProvider",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.Sendable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.SendableMetatype",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      },
+      {
+        "protocolName": "Swift.BitwiseCopyable",
+        "conformanceDefiningModule": "ClipboardRefiner"
+      }
+    ],
+    "associatedTypeAliases": [],
+    "properties": [
+      {
+        "label": "appShortcuts",
+        "type": "Swift.Array<AppIntents.AppShortcut>",
+        "mangledTypeName": "n/a - deprecated",
+        "isStatic": "true",
+        "isComputed": "true",
+        "file": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift",
+        "line": 101,
+        "valueKind": "Builder",
+        "value": {
+          "type": "AppIntents.AppShortcutsBuilder",
+          "members": [
+            {
+              "kind": "buildExpression",
+              "element": {
+                "valueKind": "InitCall",
+                "value": {
+                  "type": "AppIntents.AppShortcut",
+                  "arguments": [
+                    {
+                      "label": "intent",
+                      "type": "ClipboardRefiner.RewriteClipboardIntent",
+                      "valueKind": "InitCall",
+                      "value": {
+                        "type": "ClipboardRefiner.RewriteClipboardIntent",
+                        "arguments": []
+                      }
+                    },
+                    {
+                      "label": "phrases",
+                      "type": "Swift.Array<AppIntents.AppShortcutPhrase<ClipboardRefiner.RewriteClipboardIntent>>",
+                      "valueKind": "Array",
+                      "value": [
+                        {
+                          "valueKind": "InterpolatedStringLiteral",
+                          "value": {
+                            "segments": [
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": "Rewrite clipboard with "
+                              },
+                              {
+                                "valueKind": "Enum",
+                                "value": {
+                                  "name": "applicationName"
+                                }
+                              },
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": ""
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "valueKind": "InterpolatedStringLiteral",
+                          "value": {
+                            "segments": [
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": "Refine clipboard with "
+                              },
+                              {
+                                "valueKind": "Enum",
+                                "value": {
+                                  "name": "applicationName"
+                                }
+                              },
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": ""
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "valueKind": "InterpolatedStringLiteral",
+                          "value": {
+                            "segments": [
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": "Rewrite my clipboard with "
+                              },
+                              {
+                                "valueKind": "Enum",
+                                "value": {
+                                  "name": "applicationName"
+                                }
+                              },
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": ""
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "valueKind": "InterpolatedStringLiteral",
+                          "value": {
+                            "segments": [
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": "Make clipboard shorter with "
+                              },
+                              {
+                                "valueKind": "Enum",
+                                "value": {
+                                  "name": "applicationName"
+                                }
+                              },
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": ""
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "valueKind": "InterpolatedStringLiteral",
+                          "value": {
+                            "segments": [
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": "Make clipboard more formal with "
+                              },
+                              {
+                                "valueKind": "Enum",
+                                "value": {
+                                  "name": "applicationName"
+                                }
+                              },
+                              {
+                                "valueKind": "RawLiteral",
+                                "value": ""
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "label": "shortTitle",
+                      "type": "Foundation.LocalizedStringResource",
+                      "valueKind": "RawLiteral",
+                      "value": "Rewrite Clipboard"
+                    },
+                    {
+                      "label": "systemImageName",
+                      "type": "Swift.String",
+                      "valueKind": "RawLiteral",
+                      "value": "doc.on.clipboard"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "availabilityAttributes": [
+      {
+        "platform": "macOS",
+        "introducedVersion": "13.0",
+        "isUnavailable": false,
+        "isDeprecated": false
+      }
+    ]
+  }
+]

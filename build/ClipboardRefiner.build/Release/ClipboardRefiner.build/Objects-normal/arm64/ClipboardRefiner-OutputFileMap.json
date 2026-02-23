@@ -1,0 +1,106 @@
+{
+  "" : {
+    "const-values" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefiner-primary.swiftconstvalues",
+    "dependencies" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefiner-primary.d",
+    "diagnostics" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefiner-primary.dia",
+    "emit-module-dependencies" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefiner-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefiner-primary-emit-module.dia",
+    "pch" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefiner-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefiner-primary.swiftdeps"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/App/AppDelegate.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/AppDelegate.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/AppDelegate.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/AppDelegate.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/App/ClipboardRefinerApp.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefinerApp.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefinerApp.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ClipboardRefinerApp.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Engine/AnthropicProvider.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/AnthropicProvider.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/AnthropicProvider.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/AnthropicProvider.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Engine/LLMProvider.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/LLMProvider.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/LLMProvider.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/LLMProvider.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Engine/OpenAIProvider.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/OpenAIProvider.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/OpenAIProvider.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/OpenAIProvider.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Engine/RewriteEngine.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteEngine.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteEngine.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteEngine.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Intents/RewriteClipboardIntent.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteClipboardIntent.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteClipboardIntent.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteClipboardIntent.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Models/RewriteStyle.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteStyle.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteStyle.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/RewriteStyle.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Services/ServiceProvider.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ServiceProvider.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ServiceProvider.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/ServiceProvider.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/DesignSystem.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/DesignSystem.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/DesignSystem.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/DesignSystem.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/MenuBar/MenuBarGlassSupport.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/MenuBarGlassSupport.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/MenuBarGlassSupport.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/MenuBarGlassSupport.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/MenuBar/MenuBarView.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/MenuBarView.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/MenuBarView.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/MenuBarView.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/Onboarding/OnboardingArrowView.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/OnboardingArrowView.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/OnboardingArrowView.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/OnboardingArrowView.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/PopupWindow/PopupView.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/PopupView.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/PopupView.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/PopupView.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/PopupWindow/PopupWindowController.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/PopupWindowController.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/PopupWindowController.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/PopupWindowController.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/Settings/SettingsView.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/SettingsView.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/SettingsView.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/SettingsView.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Utilities/KeychainHelper.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/KeychainHelper.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/KeychainHelper.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/KeychainHelper.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Utilities/Logger.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/Logger.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/Logger.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/Logger.o"
+  },
+  "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/Utilities/SettingsManager.swift" : {
+    "index-unit-output-path" : "/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/SettingsManager.o",
+    "llvm-bc" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/SettingsManager.bc",
+    "object" : "/Users/espenmac/Code/ClipboardRefinerV2/build/ClipboardRefiner.build/Release/ClipboardRefiner.build/Objects-normal/arm64/SettingsManager.o"
+  }
+}

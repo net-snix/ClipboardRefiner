@@ -1,0 +1,536 @@
+{
+  "source": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/Settings/SettingsView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Provider",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 9
+        }
+      },
+      {
+        "comment": "",
+        "key": "Behavior",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 14
+        }
+      },
+      {
+        "comment": "",
+        "key": "History",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 19
+        }
+      },
+      {
+        "comment": "",
+        "key": "About",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 24
+        }
+      },
+      {
+        "comment": "",
+        "key": "No local models yet.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 100
+        }
+      },
+      {
+        "comment": "",
+        "key": "Keep loaded",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "Cloud provider is active.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 89
+        }
+      },
+      {
+        "comment": "",
+        "key": "Use Local",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "Selected model",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 105
+        }
+      },
+      {
+        "comment": "",
+        "key": "Selected model",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 111
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loaded in memory",
+        "location": {
+          "startingColumn": 58,
+          "startingLine": 127
+        }
+      },
+      {
+        "comment": "",
+        "key": "Not loaded",
+        "location": {
+          "startingColumn": 79,
+          "startingLine": 127
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add model",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 143
+        }
+      },
+      {
+        "comment": "",
+        "key": "Model name",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 147
+        }
+      },
+      {
+        "comment": "",
+        "key": "Model folder path",
+        "location": {
+          "startingColumn": 31,
+          "startingLine": 151
+        }
+      },
+      {
+        "comment": "",
+        "key": "Choose…",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 155
+        }
+      },
+      {
+        "comment": "",
+        "key": "Add",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 162
+        }
+      },
+      {
+        "comment": "",
+        "key": "Saved models",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 177
+        }
+      },
+      {
+        "comment": "",
+        "key": "Active",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 187
+        }
+      },
+      {
+        "comment": "",
+        "key": "Use",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 205
+        }
+      },
+      {
+        "comment": "",
+        "key": "Remove",
+        "location": {
+          "startingColumn": 40,
+          "startingLine": 211
+        }
+      },
+      {
+        "comment": "",
+        "key": "Saved",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 262
+        }
+      },
+      {
+        "comment": "",
+        "key": "Missing",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 266
+        }
+      },
+      {
+        "comment": "",
+        "key": "Use Provider",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 274
+        }
+      },
+      {
+        "comment": "",
+        "key": "API key",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 282
+        }
+      },
+      {
+        "comment": "",
+        "key": "Hide",
+        "location": {
+          "startingColumn": 69,
+          "startingLine": 297
+        }
+      },
+      {
+        "comment": "",
+        "key": "Show",
+        "location": {
+          "startingColumn": 78,
+          "startingLine": 297
+        }
+      },
+      {
+        "comment": "",
+        "key": "API key",
+        "location": {
+          "startingColumn": 39,
+          "startingLine": 289
+        }
+      },
+      {
+        "comment": "",
+        "key": "API key",
+        "location": {
+          "startingColumn": 41,
+          "startingLine": 291
+        }
+      },
+      {
+        "comment": "",
+        "key": "Save",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 305
+        }
+      },
+      {
+        "comment": "",
+        "key": "Delete",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 310
+        }
+      },
+      {
+        "comment": "",
+        "key": "OpenAI API keys",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 445
+        }
+      },
+      {
+        "comment": "",
+        "key": "Anthropic API keys",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 447
+        }
+      },
+      {
+        "comment": "",
+        "key": "xAI console",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 449
+        }
+      },
+      {
+        "comment": "",
+        "key": "Defaults",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 348
+        }
+      },
+      {
+        "comment": "",
+        "key": "Model",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 353
+        }
+      },
+      {
+        "comment": "",
+        "key": "Model",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 357
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reasoning effort",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 370
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reasoning effort",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 374
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enhancement defaults",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 636
+        }
+      },
+      {
+        "comment": "",
+        "key": "Runtime",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 662
+        }
+      },
+      {
+        "comment": "",
+        "key": "Services",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 670
+        }
+      },
+      {
+        "comment": "",
+        "key": "Default style",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 637
+        }
+      },
+      {
+        "comment": "",
+        "key": "Prompt skill",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 643
+        }
+      },
+      {
+        "comment": "",
+        "key": "None",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 644
+        }
+      },
+      {
+        "comment": "",
+        "key": "Rewrite aggressiveness",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 652
+        }
+      },
+      {
+        "comment": "",
+        "key": "Keep local model loaded",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 663
+        }
+      },
+      {
+        "comment": "",
+        "key": "Streaming response updates",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 664
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-copy after success",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 665
+        }
+      },
+      {
+        "comment": "",
+        "key": "Auto-load clipboard on open",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 666
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable offline cache fallback",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 667
+        }
+      },
+      {
+        "comment": "",
+        "key": "Quick service behavior",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 671
+        }
+      },
+      {
+        "comment": "",
+        "key": "Storage",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 696
+        }
+      },
+      {
+        "comment": "",
+        "key": "Entries",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 703
+        }
+      },
+      {
+        "comment": "",
+        "key": "History and offline cache stay on-device. No telemetry.",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 698
+        }
+      },
+      {
+        "comment": "",
+        "key": "Enable local history",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 697
+        }
+      },
+      {
+        "comment": "",
+        "key": "%lld saved rewrites",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 705
+        }
+      },
+      {
+        "comment": "",
+        "key": "Export JSON",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 707
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clear",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 712
+        }
+      },
+      {
+        "comment": "",
+        "key": "Clipboard Refiner",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 739
+        }
+      },
+      {
+        "comment": "",
+        "key": "Native macOS SwiftUI app for enhancing posts with cloud or local models.",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 742
+        }
+      },
+      {
+        "comment": "",
+        "key": "Drag-and-drop image context",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 746
+        }
+      },
+      {
+        "comment": "",
+        "key": "Offline cache fallback",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 747
+        }
+      },
+      {
+        "comment": "",
+        "key": "macOS Share Sheet integration",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 748
+        }
+      },
+      {
+        "comment": "",
+        "key": "Reusable Codex prompt skills",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 749
+        }
+      },
+      {
+        "comment": "",
+        "key": "Local private mode via on-device models",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 750
+        }
+      }
+    ]
+  },
+  "version": 1
+}

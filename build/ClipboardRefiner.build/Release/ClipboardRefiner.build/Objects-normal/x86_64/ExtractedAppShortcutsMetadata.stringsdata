@@ -1,0 +1,27 @@
+{
+  "version" : 1,
+  "source" : "\/Users\/espenmac\/Code\/ClipboardRefinerV2\/ClipboardRefiner\/Intents\/RewriteClipboardIntent.swift",
+  "tables" : {
+    "AppShortcuts" : [
+      {
+        "values" : [
+          "Rewrite clipboard with ${applicationName}",
+          "Refine clipboard with ${applicationName}",
+          "Rewrite my clipboard with ${applicationName}",
+          "Make clipboard shorter with ${applicationName}",
+          "Make clipboard more formal with ${applicationName}"
+        ],
+        "location" : {
+          "startingColumn" : 0,
+          "startingLine" : 101
+        },
+        "key" : "Rewrite clipboard with ${applicationName}"
+      }
+    ],
+    "Localizable" : [
+      {
+        "key" : "Rewrite clipboard with ${style}"
+      }
+    ]
+  }
+}

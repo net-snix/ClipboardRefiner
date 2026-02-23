@@ -650,12 +650,16 @@ final class SettingsManager: ObservableObject {
 
         hasPendingModelReconciliation = true
         DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
+            // Defer reconciliation to the next main-loop turn to avoid publishing
+            // while SwiftUI is still reconciling the provider/model picker update.
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
 
-            self.hasPendingModelReconciliation = false
-            let reconcileReason = self.pendingModelReconcileReason ?? .provider
-            self.pendingModelReconcileReason = nil
-            self.reconcileModelSelection(triggeredBy: reconcileReason)
+                self.hasPendingModelReconciliation = false
+                let reconcileReason = self.pendingModelReconcileReason ?? .provider
+                self.pendingModelReconcileReason = nil
+                self.reconcileModelSelection(triggeredBy: reconcileReason)
+            }
         }
     }
 

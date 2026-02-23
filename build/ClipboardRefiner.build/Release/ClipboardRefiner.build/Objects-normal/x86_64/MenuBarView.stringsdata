@@ -1,0 +1,152 @@
+{
+  "source": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/UI/MenuBar/MenuBarView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Clipboard Refiner",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 137
+        }
+      },
+      {
+        "comment": "",
+        "key": "ClipboardRefiner style, rebuilt for window workflow",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 141
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 15,
+          "startingLine": 173
+        }
+      },
+      {
+        "comment": "",
+        "key": "Settings",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 174
+        }
+      },
+      {
+        "comment": "",
+        "key": "Provider",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 182
+        }
+      },
+      {
+        "comment": "",
+        "key": "MODEL",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 191
+        }
+      },
+      {
+        "comment": "",
+        "key": "Model",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 258
+        }
+      },
+      {
+        "comment": "",
+        "key": "SKILL",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 200
+        }
+      },
+      {
+        "comment": "",
+        "key": "Skill",
+        "location": {
+          "startingColumn": 16,
+          "startingLine": 321
+        }
+      },
+      {
+        "comment": "",
+        "key": "No local models configured. Add paths in Settings.",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 218
+        }
+      },
+      {
+        "comment": "",
+        "key": "Local model",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 222
+        }
+      },
+      {
+        "comment": "",
+        "key": "Keep loaded",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 252
+        }
+      },
+      {
+        "comment": "",
+        "key": "Loaded in memory",
+        "location": {
+          "startingColumn": 58,
+          "startingLine": 242
+        }
+      },
+      {
+        "comment": "",
+        "key": "Not loaded",
+        "location": {
+          "startingColumn": 79,
+          "startingLine": 242
+        }
+      },
+      {
+        "comment": "",
+        "key": "None",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 322
+        }
+      },
+      {
+        "comment": "",
+        "key": "Style",
+        "location": {
+          "startingColumn": 32,
+          "startingLine": 336
+        }
+      },
+      {
+        "comment": "",
+        "key": "PNG, JPEG, HEIC, TIFF. Sent to cloud vision endpoints. Local provider is text-only.",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 380
+        }
+      },
+      {
+        "comment": "",
+        "key": "Drag & drop up to %lld images",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 374
+        }
+      }
+    ]
+  },
+  "version": 1
+}

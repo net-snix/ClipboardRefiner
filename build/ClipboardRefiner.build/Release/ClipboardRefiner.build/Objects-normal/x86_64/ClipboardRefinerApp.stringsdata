@@ -1,0 +1,24 @@
+{
+  "source": "/Users/espenmac/Code/ClipboardRefinerV2/ClipboardRefiner/App/ClipboardRefinerApp.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "Clipboard Refiner",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 7
+        }
+      },
+      {
+        "comment": "",
+        "key": "Style",
+        "location": {
+          "startingColumn": 23,
+          "startingLine": 21
+        }
+      }
+    ]
+  },
+  "version": 1
+}
