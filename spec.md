@@ -1,364 +1,146 @@
 # ClipboardRefiner Product Specification
 
+_Last verified against code on 2026-02-25._
+
 ## Overview
 
-ClipboardRefiner is a macOS menu bar application that leverages AI to refine, rewrite, and explain text. It provides frictionless text refinement through multiple access methods: menu bar, right-click Services, Siri Shortcuts, and global hotkeys.
+ClipboardRefiner is a native macOS menu bar application for rewriting or explaining text with cloud or local models.
 
-**Target Platform:** macOS 13.0+
-**Business Model:** One-time purchase (paid app with perpetual license)
-**Distribution:** Multiple channels (Mac App Store + direct download/Homebrew)
+- Target platform: macOS 15.0+
+- Current Xcode project language mode: Swift 5.0
+- App form factor: menu bar popover + settings window
 
-### Recently Shipped (2026-02)
+## Current Shipped Scope (2026-02)
 
-- Stream output rendering now uses coalesced UI updates (~30 FPS) to reduce main-thread thrash on long outputs.
-- Rewrite engine output overpublishing was reduced (`currentOutput` is no longer `@Published`).
-- Cancellation path removed blocking semaphore waits in cancellable handler execution (non-blocking cancel handler dispatch).
-- Menu bar result section now avoids continuous height measurement during active streaming and debounces window resizing updates.
-- Pasted image-path detection adds cheap guard checks before running full inserted-segment diff logic.
-- Behavior settings writes are staged/debounced:
-  - Aggressiveness slider commits on drag end
-  - System prompt editor writes are debounced
+### Core User Flows
 
----
+1. Open menu bar app, edit/paste text, choose provider/model/style, run rewrite or explain.
+2. Optionally attach up to 4 images (cloud providers only) as additional context.
+3. Copy or share output.
+4. Use macOS Services to open the app prefilled with selected text.
+5. Use App Intent to rewrite current clipboard text (style parameter supported).
 
-## Core Functionality
+### Rewrite Styles (Shipped)
 
-### Rewrite Styles
+`Explain` is a separate action, not part of the rewrite-style picker.
 
-Eight built-in styles, each with its own default aggressiveness setting:
+| Style | Purpose |
+|-------|---------|
+| Proofread | Fix grammar and clarity while preserving intent |
+| Shorter | Condense and remove repetition |
+| More formal | Professional tone |
+| More casual | Conversational tone |
+| Less cringe | Remove hype/buzzword phrasing |
+| Enhance X post | Improve for X-style post readability/engagement |
+| Enhance AI prompt | Improve prompt clarity and structure |
 
-| Style | Purpose | Default Aggressiveness |
-|-------|---------|------------------------|
-| Proofread | Fix grammar and improve clarity | Low |
-| Shorter | Condense while keeping key information | Medium |
-| More Formal | Professional, business-appropriate language | Low |
-| More Casual | Friendly, conversational tone | Medium |
-| Less Cringe | Remove buzzwords and marketing-speak | Medium |
-| Enhance X Post | Optimize for X/Twitter engagement | High |
-| Enhance AI Prompt | Improve prompts for better AI responses | Medium |
-| Expand/Elaborate | Add detail and depth to brief text | Medium-High |
+### Providers and Models (Shipped)
 
-**Explain Feature:** Separate from rewrite styles, accessible via dedicated button. Produces meta-content explaining what the input text is and means, rather than rewriting it.
+1. OpenAI
+   - `gpt-5.2`
+   - `gpt-5.1-2025-11-13`
+2. Anthropic
+   - `claude-sonnet-4-6`
+   - `claude-opus-4-6`
+3. xAI
+   - `grok-4-1-fast`
+   - `grok-4-1-fast-reasoning-latest`
+4. Local
+   - Path-based local model configuration
+   - Text-only (no image attachment support)
 
-### Custom Styles
+### Settings Surface (Shipped)
 
-Users can create custom styles with their own prompts:
-- **Storage:** In-app settings (not external files)
-- **Editor:** Simple textarea (no syntax highlighting)
-- **Management:** Create, edit, delete custom styles
-- **Limit:** No hard limit, but reasonable cap for UI sanity
+#### Provider tab
+- Provider selection
+- Model defaults per provider
+- API key management (Keychain-backed for cloud providers)
+- Local model path list/add/remove/select
+- Load/unload local model controls
+- Keep-local-model-loaded toggle
 
----
+#### Behavior tab
+- Default rewrite style
+- Prompt skill selection
+- Rewrite aggressiveness slider
+- System prompt override editor per style
+- Runtime toggles:
+  - Streaming response updates
+  - Auto-copy after success
+  - Auto-load clipboard on open
+  - Keep local model loaded
+  - Enable offline cache fallback
+- Quick service behavior picker (interactive popup vs quick replace)
 
-## AI Provider Support
-
-### Supported Providers
-
-1. **OpenAI** (gpt-4o, gpt-4o-mini, gpt-5.2)
-2. **Anthropic** (claude-sonnet-4-6, claude-opus-4-6)
-3. **xAI** (grok-4-1-fast, grok-4-1-fast-reasoning-latest)
-4. **Local** (on-device models via configured model paths)
-
-### Provider Selection Philosophy
-
-New providers are added based on personal use case, not user demand or strategic coverage.
-
-### Unified Reasoning Abstraction
-
-Rather than per-provider settings (OpenAI reasoning effort, Claude extended thinking, etc.), implement a unified "thinking depth" slider that maps to each provider's equivalent feature.
-
-### Local LLM Support
-
-- **Configuration:** Users provide model folder paths in Settings
-- **Selection:** Active local model chosen from configured dropdown
-- **Use case:** Privacy-conscious users, offline usage
-
----
-
-## User Interface
-
-### Menu Bar Popover
-
-**Dimensions:**
-- Width: Adaptive based on screen size (smaller screens get narrower popover)
-- Height: Scalable based on content
-
-**Components:**
-1. **Top Bar:** Title, status indicator, history button, settings menu
-2. **Input Section:** Scrollable text area (3-20 lines)
-3. **Action Row:**
-   - Refine button (primary)
-   - Explain button (secondary)
-   - Style picker dropdown
-4. **Result Section:** (appears after refinement)
-   - Readonly output text
-   - Redo button (uses current settings, not original)
-   - Copy button
-5. **History Section:** (collapsible)
-
-**Empty State UX:** When API key is missing/invalid, show inline helper text near disabled Refine button: "Set up API key in settings"
-
-### Detachable Window Mode
-
-Add ability to detach the popover into a resizable floating window for longer text work:
-- Button to pop out into separate window
-- Window is fully resizable
-- Returns to menu bar popover when closed
-
-### Diff Highlighting
-
-Optional toggle in settings to show inline diff highlighting in result section:
-- Additions highlighted (green/underline)
-- Deletions shown (red/strikethrough)
-- Toggle in Behavior settings tab
-
----
-
-## Settings
-
-### Provider Tab
-- Provider selection radio/dropdown
-- Model picker per provider
-- API key management (Keychain storage)
-
-### Behavior Tab
-- Quick behavior (Interactive vs Quick Replace)
-- Streaming enabled toggle
-- Auto-copy result toggle
-- **Auto-load clipboard toggle** — Allow users to disable automatic clipboard loading on menu open (privacy feature for sensitive data)
-- Aggressiveness slider (global default)
-- Reasoning effort (unified slider when applicable)
-- Diff highlighting toggle
-
-### History Tab
-- Enable/disable history
-- Export to JSON
+#### History tab
+- Enable/disable local history
+- Export history JSON
 - Clear history
+- Clear offline cache
 
-### Custom Styles Tab
-- List of custom styles
-- Add/edit/delete interface
-- Simple textarea for prompt editing
+#### About tab
+- Product summary and feature bullets
 
-### About Tab
-- App info and version
-- Links to support/feedback
+### Access Methods (Shipped)
 
----
+1. Menu bar app (primary)
+2. macOS Services (NSServices in `Info.plist`)
+   - `Rewrite with Clipboard Refiner`
+   - `Explain with Clipboard Refiner`
+   - Both open the menu workflow with prefilled text
+3. App Intent / Shortcuts
+   - `Rewrite Clipboard` intent with style parameter
 
-## Access Methods
+## Streaming and Completion Behavior (Shipped)
 
-### 1. Menu Bar
-- Click icon to open popover
-- Auto-loads clipboard content (if setting enabled)
-- Select style, click Refine
+- SSE streaming for cloud providers.
+- Stream UI delivery is coalesced to ~30 FPS in `RewriteEngine`.
+- Final pending stream output is flushed before completion callback.
+- Streaming can be toggled in Settings.
+- If a failure occurs after partial streamed output, current partial text remains visible.
 
-### 2. macOS Services (Right-click)
-- "Open Clipboard Refiner" — Opens menu bar with selected text
-- "Rewrite Interactive" — Shows popup with Replace/Copy options
-- "Rewrite Quick" — Instant replace or interactive (configurable)
+## Performance Hardening Shipped (2026-02)
 
-**Safety:** Original text preserved in history for recovery (when history enabled)
+- Coalesced stream UI delivery (~30 FPS).
+- `RewriteEngine.currentOutput` is no longer `@Published`.
+- Cancel handler path uses non-blocking async dispatch in `ProcessCancellable`.
+- Result panel height measurement suppressed during active streaming.
+- Window sizing updates debounced.
+- Pasted image-path detection has early guard checks before diffing.
+- Settings write churn reduced:
+  - Aggressiveness commits on slider release.
+  - System prompt commits are debounced (~300ms).
 
-**Testing needed:** Service conflicts with Grammarly, Raycast, Notion, and other apps with Services
+## Known Performance Caveats (Current)
 
-### 3. Siri Shortcuts
-- Current: Basic refine intent
-- Future consideration: Style parameter, batch processing
+- Providers still dispatch each stream chunk to main-thread closures before engine-level coalesced delivery.
+- Streaming still propagates full accumulated output strings repeatedly, which can be expensive on very long outputs.
+- Local model lifecycle uses semaphore waits on a background queue for load/unload paths.
+- Image attachment flow can spike memory due to raw bytes + base64 + data URL + JSON request body.
+- `rewriteSync` is a blocking API and should not be used from main-thread contexts.
 
-### 4. Global Keyboard Shortcuts
+## Data Storage and Privacy (Current)
 
-**Configurable hotkeys:**
-- Open menu bar
-- Refine clipboard directly
-- Per-style shortcuts (e.g., Cmd+Shift+1 for Proofread, Cmd+Shift+2 for Shorter)
+- API keys: macOS Keychain.
+- Settings + rewrite history: UserDefaults.
+- Offline rewrite cache: local JSON file in Application Support (`rewrite-cache.json`).
+- History cap: 150 entries.
+- Offline cache cap: 300 entries.
+- No telemetry by default.
+- Optional local perf telemetry can be enabled with `CLIPBOARD_REFINER_PERF=1` (JSON lines to stderr, local process only).
+- Local provider keeps prompt/model execution on-device.
 
-Power users can bind different hotkeys to different styles for maximum efficiency.
+## Not Yet Shipped / Planned
 
----
+1. Custom user-defined rewrite styles + dedicated settings tab.
+2. Diff-highlighting toggle integrated in runtime UI.
+3. Global keyboard shortcut registration and management.
+4. Detachable/floating long-form editor window mode.
+5. Stream failure retry control in result UI.
+6. Usage tracking dashboard/analytics view (local aggregates).
+7. Deeper Shortcuts workflows (batch/more parameters).
 
-## Streaming & Error Handling
+## Version Status
 
-### Streaming Behavior
-- Real-time SSE parsing for live output with coalesced UI delivery (~30 FPS target)
-- Toggle to enable/disable streaming
-- Final stream output is force-flushed before completion callback
-
-### Stream Failure Recovery
-When streaming fails mid-response (network hiccup, rate limit):
-1. **Preserve partial result** in output field
-2. **Show retry button** to continue/restart
-3. Error message explains what happened
-
-### Context Window Overflow
-When input text exceeds model's context limit:
-- **Show error** with clear message about limits
-- Display approximate character/token limit
-- Do not auto-truncate or chunk (user must shorten input)
-
----
-
-## Usage Tracking
-
-### Aggregated Summaries
-Dashboard page showing:
-- Daily usage totals (tokens, estimated cost)
-- Weekly/monthly aggregation
-- Charts/graphs for visualization
-- Per-provider breakdown
-
-### Data Tracked
-- Input tokens
-- Output tokens
-- Model used
-- Estimated cost (based on public pricing)
-- Timestamp
-
-### Privacy
-- Data stored locally only
-- No server-side analytics
-
----
-
-## History
-
-### Storage
-- Location: UserDefaults (JSON)
-- Cap: 100 entries (lower if performance issues arise)
-- Retention: Indefinite until cleared
-
-### Entry Data
-- Original text
-- Refined text
-- Style used
-- Provider/model
-- Timestamp
-- Token usage (for usage tracking)
-
-### Features
-- Search/filter entries
-- Click to load into input
-- Export to JSON
-- Clear all
-
----
-
-## Aggressiveness System
-
-### Curve
-Exponential: `temperature = pow(aggressiveness, 2) * 0.8 + 0.2`
-
-This provides finer control at lower values where precision matters most.
-
-### Per-Style Defaults
-Each style has its own sensible default:
-- Proofread: ~0.15 (minimal changes)
-- Shorter: ~0.35 (moderate restructuring)
-- Enhance X Post: ~0.65 (significant creative freedom)
-
-User can override per-use; global setting serves as fallback.
-
----
-
-## Internationalization
-
-### Multi-language Handling
-- Prompts instruct LLM to preserve multiple languages
-- Tested with mixed-language content (code comments, multilingual emails)
-- Works well in current implementation
-
-### UI Localization
-- Not currently planned
-- English-only interface
-
----
-
-## Technical Architecture
-
-### State Management
-SwiftUI native approach with Combine:
-- `@Published` properties in managers
-- `@ObservedObject` in views
-- Hot-path output publishing reduced to limit global invalidation fan-out during streaming
-- No external state management library needed
-
-### Key Storage
-- API keys: macOS Keychain
-- Settings: UserDefaults
-- History: UserDefaults (JSON)
-
-### Logging
-- Location: `~/Library/Application Support/ClipboardRefiner/Logs/`
-- Retention: 7 days
-- **Audit needed:** Verify logs don't contain refined text content
-
----
-
-## Quality Assurance
-
-### Memory Profiling
-- **Status:** Performance hardening in progress (multiple hot-path reductions shipped)
-- **Action:** Run Instruments Allocations/Time Profiler/Leaks for before-vs-after quantification
-- **Focus:** streaming buffers, attachment payload peaks, history/cache persistence churn
-
-### Accessibility
-- **Status:** Not a priority
-- **Baseline:** SwiftUI default accessibility
-- VoiceOver not explicitly tested
-
-### Service Conflicts
-- **Status:** Not extensively tested
-- **Action:** Test alongside Grammarly, Raycast, Notion, Bear
-
----
-
-## Roadmap Summary
-
-### Planned Features
-1. Configurable global hotkeys (per-style shortcuts)
-2. Detachable floating window mode
-3. Adaptive popover width
-4. Local LLM support (path-based model selection)
-5. Custom user-defined styles
-6. Usage tracking dashboard with aggregated summaries
-7. Per-style default aggressiveness
-8. Stream failure recovery with partial preservation
-9. Diff highlighting toggle
-10. Auto-load clipboard toggle (privacy)
-11. Inline helper text for missing API key
-12. "Expand/Elaborate" built-in style
-13. Context overflow error handling
-
-### Not Planned
-- Translation style (rely on LLM general capability)
-- Image/OCR input
-- Cloud sync / collaborative features
-- Deep Siri Shortcuts integration (current is sufficient)
-- App-specific plugins (Services covers use cases)
-
-### Deferred
-- Deeper Shortcuts parameters (style selection, batch)
-- Extensive accessibility testing
-- UI localization
-
----
-
-## Design Principles
-
-1. **Minimal friction:** Text refinement should be fast and unobtrusive
-2. **User responsibility:** Tool provides capability, user decides ethical use
-3. **Trust the LLM:** Rely on model training for style evolution (e.g., "cringe" detection)
-4. **Simple over complex:** SwiftUI native patterns, no over-engineering
-5. **Power user friendly:** Hotkeys, custom styles, but not at cost of simplicity
-6. **Privacy respecting:** Local storage, user's own API keys, optional auto-load
-
----
-
-## Version History
-
-- **Current:** Feature-complete core with OpenAI, Anthropic, xAI support
-- **This spec:** Documents current state + planned enhancements
-
----
-
-*Spec generated from product interview on 2024-12-29*
+- Current: production-oriented core app with OpenAI, Anthropic, xAI, and local provider support.
+- This spec: explicitly separated into shipped behavior vs planned work to avoid roadmap/current-state drift.

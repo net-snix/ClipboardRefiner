@@ -13,9 +13,9 @@ Native macOS SwiftUI app for refining text posts with cloud or local models, ima
 
 ## Recent Performance Updates (2026-02)
 
-- Stream UI updates are coalesced (~30 FPS) to reduce main-thread churn on long generations.
+- Stream UI delivery is coalesced (~30 FPS) to reduce view-update churn on long generations.
 - Rewrite output hot-path overpublishing was reduced (`currentOutput` is no longer `@Published`).
-- Cancel handling is non-blocking (removed synchronous semaphore waits in cancellable handler path).
+- Cancel-handler dispatch is non-blocking (removed synchronous semaphore waits in cancellable handler path).
 - Result panel height measurement is suppressed while streaming, and popover window sizing updates are debounced.
 - Pasted image-path auto-detection adds cheap early guards before expensive diffing.
 - Behavior settings reduce write/publish storms:
@@ -25,7 +25,7 @@ Native macOS SwiftUI app for refining text posts with cloud or local models, ima
 ## Features
 
 - Providers: OpenAI, Anthropic, xAI, Local
-- Style presets: Proofread, Shorter, Formal, Casual, Less Cringe, X Post, Prompt Enhance, Explain
+- Style presets: Proofread, Shorter, More formal, More casual, Less cringe, Enhance X post, Enhance AI prompt, Explain
 - Prompt skill templates:
   - Thread Crafter
   - Launch Writer
@@ -38,8 +38,8 @@ Native macOS SwiftUI app for refining text posts with cloud or local models, ima
 
 ## Requirements
 
-- macOS 13+
-- Xcode with Swift 6 toolchain
+- macOS 15+
+- Xcode (project currently uses Swift language mode `5.0`)
 - API key for OpenAI/Anthropic/xAI (optional if using Local only)
 - `python3` + [`mlx-lm`](https://github.com/ml-explore/mlx-examples/tree/main/llms) installed for Local provider runtime
 
@@ -79,5 +79,6 @@ Reusable prompt templates also live in:
 ## Privacy
 
 - History/cache are local files on-device
-- No telemetry or analytics
+- No telemetry by default
+- Optional local perf telemetry can be enabled with `CLIPBOARD_REFINER_PERF=1` (emits JSON lines to stderr)
 - With Local provider, prompts stay on-device
