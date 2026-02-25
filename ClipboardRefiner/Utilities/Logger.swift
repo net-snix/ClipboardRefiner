@@ -1,6 +1,79 @@
 import Foundation
 import os.log
 
+struct PerfSpan {
+    fileprivate let metric: String
+    fileprivate let startTime: CFAbsoluteTime
+    fileprivate let fields: [String: String]
+}
+
+enum PerfTelemetry {
+    private static let queue = DispatchQueue(label: "com.clipboardrefiner.perf.telemetry", qos: .utility)
+    private static let isEnabled: Bool = {
+        guard let raw = ProcessInfo.processInfo.environment["CLIPBOARD_REFINER_PERF"] else {
+            return false
+        }
+        let normalized = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return normalized == "1" || normalized == "true" || normalized == "yes"
+    }()
+
+    static func begin(_ metric: String, fields: [String: String] = [:]) -> PerfSpan? {
+        guard isEnabled else { return nil }
+        return PerfSpan(metric: metric, startTime: CFAbsoluteTimeGetCurrent(), fields: fields)
+    }
+
+    static func end(_ span: PerfSpan?, fields: [String: String] = [:]) {
+        guard let span else { return }
+        let elapsedMs = (CFAbsoluteTimeGetCurrent() - span.startTime) * 1000
+        emit(
+            metric: span.metric,
+            kind: "timer",
+            durationMs: round(elapsedMs * 1000) / 1000,
+            fields: span.fields.merging(fields, uniquingKeysWith: { _, rhs in rhs })
+        )
+    }
+
+    static func event(_ metric: String, fields: [String: String] = [:]) {
+        guard isEnabled else { return }
+        emit(metric: metric, kind: "event", durationMs: nil, fields: fields)
+    }
+
+    private static func emit(
+        metric: String,
+        kind: String,
+        durationMs: Double?,
+        fields: [String: String]
+    ) {
+        queue.async {
+            var payload: [String: Any] = [
+                "type": "perf",
+                "metric": metric,
+                "kind": kind,
+                "ts_ms": Int(Date().timeIntervalSince1970 * 1000)
+            ]
+            if let durationMs {
+                payload["duration_ms"] = durationMs
+            }
+            if !fields.isEmpty {
+                payload["fields"] = fields
+            }
+
+            guard JSONSerialization.isValidJSONObject(payload),
+                  let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+                  let line = String(data: data, encoding: .utf8),
+                  let output = "\(line)\n".data(using: .utf8) else {
+                return
+            }
+
+            do {
+                try FileHandle.standardError.write(contentsOf: output)
+            } catch {
+                // Keep telemetry best-effort only.
+            }
+        }
+    }
+}
+
 final class AppLogger {
     static let shared = AppLogger()
 

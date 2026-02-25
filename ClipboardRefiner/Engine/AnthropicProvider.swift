@@ -77,12 +77,25 @@ final class AnthropicProvider: LLMProvider {
             var accumulatedOutput = ""
             var streamErrorMessage: String?
             var streamStopReason: String?
+            let streamSpan = PerfTelemetry.begin(
+                "provider.stream",
+                fields: [
+                    "provider": providerType.rawValue,
+                    "model": model,
+                    "streaming": "true"
+                ]
+            )
+            var streamEventCount = 0
+            var streamPayloadBytes = 0
+            var streamDeltaChars = 0
 
             ProviderHTTP.performSSE(
                 request: request,
                 cancellable: cancellable,
                 eventHandler: { _, data in
                     guard data != "[DONE]" else { return }
+                    streamEventCount += 1
+                    streamPayloadBytes += data.utf8.count
                     guard let payload = data.data(using: .utf8),
                           let json = ProviderHTTP.decodeJSON(payload) else {
                         return
@@ -96,6 +109,7 @@ final class AnthropicProvider: LLMProvider {
                     }
 
                     if let delta = Self.extractStreamDelta(from: json) {
+                        streamDeltaChars += delta.count
                         Self.mergeStreamOutput(delta, into: &accumulatedOutput, streamHandler: streamHandler)
                     }
 
@@ -104,6 +118,20 @@ final class AnthropicProvider: LLMProvider {
                     }
                 },
                 completion: { result in
+                    PerfTelemetry.end(
+                        streamSpan,
+                        fields: [
+                            "provider": self.providerType.rawValue,
+                            "model": self.model,
+                            "status": (try? result.get()) != nil ? "success" : "failure",
+                            "events": "\(streamEventCount)",
+                            "payload_bytes": "\(streamPayloadBytes)",
+                            "delta_chars": "\(streamDeltaChars)",
+                            "output_chars": "\(accumulatedOutput.count)",
+                            "stream_error_present": streamErrorMessage == nil ? "0" : "1",
+                            "stop_reason_present": streamStopReason == nil ? "0" : "1"
+                        ]
+                    )
                     switch result {
                     case .failure(let error):
                         completion(.failure(error))
@@ -250,19 +278,15 @@ final class AnthropicProvider: LLMProvider {
         streamHandler: @escaping (String) -> Void
     ) {
         guard !candidate.isEmpty else { return }
-
-        let updatedValue: String
         if candidate.hasPrefix(accumulated) {
             guard candidate.count > accumulated.count else { return }
-            updatedValue = candidate
+            accumulated = candidate
         } else {
-            updatedValue = accumulated + candidate
+            accumulated.append(contentsOf: candidate)
         }
-
-        guard updatedValue != accumulated else { return }
-        accumulated = updatedValue
+        let output = accumulated
         ProviderHTTP.deliverOnMain {
-            streamHandler(updatedValue)
+            streamHandler(output)
         }
     }
 }

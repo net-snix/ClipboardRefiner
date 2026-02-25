@@ -621,6 +621,10 @@ struct ProviderSettingsView: View {
 struct BehaviorSettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
     @State private var promptEditorStyle: RewriteStyle = .rewrite
+    @State private var aggressivenessDraft: Double = SettingsManager.shared.aggressiveness
+    @State private var isAggressivenessEditing = false
+    @State private var promptDraft = ""
+    @State private var promptCommitWorkItem: DispatchWorkItem?
 
     var body: some View {
         Form {
@@ -646,7 +650,12 @@ struct BehaviorSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    Slider(value: $settings.aggressiveness, in: 0...1, step: 0.01)
+                    Slider(
+                        value: $aggressivenessDraft,
+                        in: 0...1,
+                        step: 0.01,
+                        onEditingChanged: handleAggressivenessEditingChanged
+                    )
                 }
             }
 
@@ -662,7 +671,7 @@ struct BehaviorSettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
 
-                    TextEditor(text: systemPromptEditorBinding)
+                    TextEditor(text: $promptDraft)
                         .font(.system(size: 12, weight: .regular, design: .monospaced))
                         .frame(minHeight: 200)
                         .overlay(
@@ -673,7 +682,9 @@ struct BehaviorSettingsView: View {
 
                 HStack(spacing: 10) {
                     Button("Reset selected to default") {
+                        cancelPendingPromptCommit()
                         settings.resetSystemPromptOverride(for: promptEditorStyle)
+                        syncPromptDraft(for: promptEditorStyle)
                     }
                     .disabled(!settings.hasSystemPromptOverride(for: promptEditorStyle))
 
@@ -704,28 +715,83 @@ struct BehaviorSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear {
+            aggressivenessDraft = clampedAggressiveness(settings.aggressiveness)
+            syncPromptDraft(for: promptEditorStyle)
+        }
+        .onChange(of: settings.aggressiveness) { newValue in
+            guard !isAggressivenessEditing else { return }
+            aggressivenessDraft = clampedAggressiveness(newValue)
+        }
+        .onChange(of: promptEditorStyle) { newStyle in
+            syncPromptDraft(for: newStyle)
+        }
+        .onChange(of: promptDraft) { newValue in
+            guard newValue != selectedSystemPromptText else { return }
+            schedulePromptCommit(for: promptEditorStyle, text: newValue)
+        }
+        .onChange(of: selectedSystemPromptText) { newValue in
+            guard newValue != promptDraft else { return }
+            promptDraft = newValue
+        }
     }
 
     private var aggressivenessValueLabel: String {
-        let clamped = min(max(settings.aggressiveness, 0), 1)
+        let clamped = clampedAggressiveness(aggressivenessDraft)
         return "\(Int(round(clamped * 100)))%"
     }
 
-    private var systemPromptEditorBinding: Binding<String> {
-        Binding(
-            get: {
-                settings.systemPromptOverride(for: promptEditorStyle) ??
-                settings.systemPrompt(for: promptEditorStyle)
-            },
-            set: { newValue in
-                settings.setSystemPromptOverride(newValue, for: promptEditorStyle)
+    private var selectedSystemPromptText: String {
+        systemPromptText(for: promptEditorStyle)
+    }
+
+    private func clampedAggressiveness(_ value: Double) -> Double {
+        min(max(value, 0), 1)
+    }
+
+    private func handleAggressivenessEditingChanged(_ isEditing: Bool) {
+        isAggressivenessEditing = isEditing
+        guard !isEditing else { return }
+
+        let clampedValue = clampedAggressiveness(aggressivenessDraft)
+        aggressivenessDraft = clampedValue
+        if settings.aggressiveness != clampedValue {
+            settings.aggressiveness = clampedValue
+        }
+    }
+
+    private func systemPromptText(for style: RewriteStyle) -> String {
+        settings.systemPromptOverride(for: style) ??
+        settings.systemPrompt(for: style)
+    }
+
+    private func syncPromptDraft(for style: RewriteStyle) {
+        promptDraft = systemPromptText(for: style)
+    }
+
+    private func schedulePromptCommit(for style: RewriteStyle, text: String) {
+        cancelPendingPromptCommit()
+
+        let workItem = DispatchWorkItem {
+            if text != systemPromptText(for: style) {
+                settings.setSystemPromptOverride(text, for: style)
             }
-        )
+            promptCommitWorkItem = nil
+        }
+
+        promptCommitWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: workItem)
+    }
+
+    private func cancelPendingPromptCommit() {
+        promptCommitWorkItem?.cancel()
+        promptCommitWorkItem = nil
     }
 }
 
 struct HistorySettingsView: View {
     @ObservedObject private var settings = SettingsManager.shared
+    @State private var offlineCacheStatus: String?
 
     var body: some View {
         Form {
@@ -734,6 +800,20 @@ struct HistorySettingsView: View {
                 Text("History and offline cache stay on-device. No telemetry.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+
+                HStack {
+                    Text("Offline cache")
+                    Spacer()
+                    Button("Clear offline cache") {
+                        clearOfflineCache()
+                    }
+                }
+
+                if let offlineCacheStatus {
+                    Text(offlineCacheStatus)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Section("Entries") {
@@ -764,6 +844,17 @@ struct HistorySettingsView: View {
             if response == .OK, let url = panel.url {
                 let json = settings.exportHistory()
                 try? json.write(to: url, atomically: true, encoding: .utf8)
+            }
+        }
+    }
+
+    private func clearOfflineCache() {
+        offlineCacheStatus = "Clearing..."
+        RewriteEngine.shared.clearOfflineCache {
+            offlineCacheStatus = "Offline cache cleared."
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                offlineCacheStatus = nil
             }
         }
     }

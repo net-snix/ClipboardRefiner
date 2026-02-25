@@ -12,8 +12,10 @@ struct ClipboardRefinerApp: App {
                     NSApp.keyWindow?.close()
                 }
             )
-            .frame(minWidth: 760, minHeight: 700)
+            .frame(minWidth: 820, minHeight: 520)
         }
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unifiedCompact(showsTitle: false))
 
         Settings {
             SettingsView()

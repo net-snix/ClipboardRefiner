@@ -111,12 +111,18 @@ final class SettingsManager: ObservableObject {
         label: "com.clipboardrefiner.settings.history.persistence",
         qos: .utility
     )
+    private let menuDraftPersistenceQueue = DispatchQueue(
+        label: "com.clipboardrefiner.settings.menuDraft.persistence",
+        qos: .utility
+    )
     private var isReconcilingModelSelection = false
     private var hasPendingModelReconciliation = false
     private var pendingModelReconcileReason: ModelReconcileReason?
     private var pendingHistorySaveWorkItem: DispatchWorkItem?
+    private var pendingMenuDraftSaveWorkItem: DispatchWorkItem?
     private let apiKeyCacheLock = NSLock()
     private var apiKeyCache: [LLMProviderType: String?] = [:]
+    private var cachedMenuDraftText = ""
 
     private enum Keys {
         static let provider = "selectedProvider"
@@ -140,6 +146,7 @@ final class SettingsManager: ObservableObject {
         static let autoLoadClipboard = "autoLoadClipboard"
         static let keepLocalModelLoaded = "keepLocalModelLoaded"
         static let systemPromptOverrides = "systemPromptOverrides"
+        static let menuDraftText = "menuDraftText"
     }
 
     private enum ModelReconcileReason {
@@ -152,7 +159,9 @@ final class SettingsManager: ObservableObject {
         didSet {
             defaults.set(selectedProvider.rawValue, forKey: Keys.provider)
             if !isReconcilingModelSelection {
-                scheduleModelReconciliation(triggeredBy: .provider)
+                // Keep provider/model in sync immediately so Picker selection
+                // never needs to write back during SwiftUI view updates.
+                reconcileModelSelection(triggeredBy: .provider)
             }
         }
     }
@@ -285,6 +294,7 @@ final class SettingsManager: ObservableObject {
         self.openAIReasoningEffort = OpenAIReasoningEffort(rawValue: effortRaw) ?? .none
 
         self.hasSeenOnboarding = defaults.object(forKey: Keys.hasSeenOnboarding) as? Bool ?? true
+        self.cachedMenuDraftText = defaults.string(forKey: Keys.menuDraftText) ?? ""
 
         loadHistory()
         loadLocalModelPaths()
@@ -528,6 +538,39 @@ final class SettingsManager: ObservableObject {
         saveSystemPromptOverrides()
     }
 
+    func loadMenuDraftText() -> String {
+        cachedMenuDraftText
+    }
+
+    func saveMenuDraftText(_ text: String) {
+        guard text != cachedMenuDraftText else { return }
+        cachedMenuDraftText = text
+
+        pendingMenuDraftSaveWorkItem?.cancel()
+        let snapshot = text
+        let workItem = DispatchWorkItem { [defaults] in
+            defaults.set(snapshot, forKey: Keys.menuDraftText)
+            PerfTelemetry.event(
+                "menu_draft.persist",
+                fields: [
+                    "chars": "\(snapshot.count)",
+                    "bytes": "\(snapshot.lengthOfBytes(using: .utf8))"
+                ]
+            )
+        }
+
+        pendingMenuDraftSaveWorkItem = workItem
+        menuDraftPersistenceQueue.asyncAfter(deadline: .now() + 0.35, execute: workItem)
+    }
+
+    func clearMenuDraftText() {
+        cachedMenuDraftText = ""
+        pendingMenuDraftSaveWorkItem?.cancel()
+        pendingMenuDraftSaveWorkItem = nil
+        defaults.removeObject(forKey: Keys.menuDraftText)
+        PerfTelemetry.event("menu_draft.clear")
+    }
+
     private func loadHistory() {
         guard let data = defaults.data(forKey: Keys.history) else { return }
 
@@ -691,8 +734,10 @@ final class SettingsManager: ObservableObject {
                 let resolvedPreferred = selectedProvider.availableModels.contains(normalizedPreferred)
                     ? normalizedPreferred
                     : selectedProvider.defaultModel
+                if selectedModel != resolvedPreferred {
+                    selectedModel = resolvedPreferred
+                }
                 persistModelPreference(resolvedPreferred, for: selectedProvider)
-                // Avoid cascading publish when provider picker changes.
                 return
             }
 

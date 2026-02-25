@@ -5,7 +5,7 @@ final class RewriteEngine: ObservableObject {
     static let shared = RewriteEngine()
 
     @Published var isProcessing = false
-    @Published var currentOutput = ""
+    private(set) var currentOutput = ""
     @Published var error: LLMError?
     @Published private(set) var isLocalModelLoaded = false
     @Published private(set) var loadedLocalModelName: String?
@@ -13,6 +13,7 @@ final class RewriteEngine: ObservableObject {
     @Published private(set) var isUnloadingLocalModel = false
 
     private var currentCancellable: Cancellable?
+    private var currentCancellableRequestID: UUID?
     private var provider: LLMProvider?
     private var activeRewriteProviderType: LLMProviderType?
     private let localWorkerLifecycleQueue = DispatchQueue(
@@ -108,21 +109,101 @@ final class RewriteEngine: ObservableObject {
             providerName: requestProviderName,
             model: requestModelName
         )
+        let rewriteSpan = PerfTelemetry.begin(
+            "rewrite.request",
+            fields: [
+                "provider": requestProviderType.rawValue,
+                "model": requestModelName,
+                "style": options.style.rawValue,
+                "streaming": options.streaming ? "1" : "0",
+                "input_chars": "\(text.count)",
+                "image_count": "\(options.imageAttachments.count)"
+            ]
+        )
         activeRewriteProviderType = requestProviderType
 
-        let finalizeRequest: (Result<String, LLMError>, String?) -> Void = { [weak self] result, finalOutput in
+        let streamCoalescingInterval: TimeInterval = 1.0 / 30.0
+        var pendingStreamOutput: String?
+        var pendingStreamFlushWorkItem: DispatchWorkItem?
+
+        let flushPendingStreamOutput: () -> Void = { [weak self] in
+            guard let self else { return }
+            pendingStreamFlushWorkItem?.cancel()
+            pendingStreamFlushWorkItem = nil
+
+            guard self.isActiveRewriteRequest(rewriteRequestID),
+                  let output = pendingStreamOutput else {
+                pendingStreamOutput = nil
+                return
+            }
+
+            pendingStreamOutput = nil
+            streamHandler(output)
+        }
+
+        let scheduleCoalescedStreamFlush: () -> Void = { [weak self] in
+            guard let self, pendingStreamFlushWorkItem == nil else { return }
+
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                pendingStreamFlushWorkItem = nil
+
+                guard self.isActiveRewriteRequest(rewriteRequestID),
+                      let output = pendingStreamOutput else {
+                    pendingStreamOutput = nil
+                    return
+                }
+
+                pendingStreamOutput = nil
+                streamHandler(output)
+            }
+
+            pendingStreamFlushWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + streamCoalescingInterval, execute: workItem)
+        }
+
+        let finalizeRequest: (Result<String, LLMError>, String?, Bool) -> Void = { [weak self] result, finalOutput, servedFromCache in
             guard let self else { return }
 
             self.deliverOnMain {
                 let isActiveRequest = self.isActiveRewriteRequest(rewriteRequestID)
                 let finalResult = isActiveRequest ? result : .failure(.cancelled)
                 let finalText = finalOutput ?? (try? finalResult.get())
+                flushPendingStreamOutput()
+                self.clearCurrentCancellableIfMatchingRequest(rewriteRequestID)
 
-                guard self.markRewriteRequestCompleted(rewriteRequestID, result: finalResult, completion: completion) else {
+                let completionOutcome = self.markRewriteRequestCompleted(
+                    rewriteRequestID,
+                    result: finalResult,
+                    completion: completion
+                )
+                guard case .completed(let isActiveAfterCompletion) = completionOutcome else {
                     return
                 }
 
-                guard isActiveRequest else {
+                let status: String
+                switch finalResult {
+                case .success:
+                    status = "success"
+                case .failure(let error):
+                    if case .cancelled = error {
+                        status = "cancelled"
+                    } else {
+                        status = "failure"
+                    }
+                }
+                PerfTelemetry.end(
+                    rewriteSpan,
+                    fields: [
+                        "provider": requestProviderType.rawValue,
+                        "model": requestModelName,
+                        "status": status,
+                        "served_from_cache": servedFromCache ? "1" : "0",
+                        "output_chars": "\(finalText?.count ?? 0)"
+                    ]
+                )
+
+                guard isActiveAfterCompletion else {
                     return
                 }
 
@@ -188,13 +269,13 @@ final class RewriteEngine: ObservableObject {
                             if self.isActiveRewriteRequest(rewriteRequestID) {
                                 streamHandler(cached)
                             }
-                            finalizeRequest(.success(cached), cached)
+                            finalizeRequest(.success(cached), cached, true)
                         }
                         return
                     }
 
                     await MainActor.run {
-                        finalizeRequest(.failure(missingProviderError), nil)
+                        finalizeRequest(.failure(missingProviderError), nil, false)
                     }
                 }
                 return
@@ -215,14 +296,15 @@ final class RewriteEngine: ObservableObject {
             guard let self else { return }
             guard self.isActiveRewriteRequest(rewriteRequestID) else { return }
 
-            self.currentCancellable = activeProvider.rewrite(
+            let cancellable = activeProvider.rewrite(
                 text: text,
                 options: options,
                 streamHandler: { [weak self] output in
                     self?.deliverOnMain {
                         guard let self, self.isActiveRewriteRequest(rewriteRequestID) else { return }
+                        pendingStreamOutput = output
                         self.currentOutput = output
-                        streamHandler(output)
+                        scheduleCoalescedStreamFlush()
                     }
                 },
                 completion: { [weak self] result in
@@ -230,7 +312,7 @@ final class RewriteEngine: ObservableObject {
                     self.deliverOnMain {
                         switch result {
                         case .success(let output):
-                            finalizeRequest(.success(output), output)
+                            finalizeRequest(.success(output), output, false)
                         case .failure(let failure):
                             Task {
                                 if settings.offlineCacheEnabled,
@@ -240,19 +322,21 @@ final class RewriteEngine: ObservableObject {
                                         if self.isActiveRewriteRequest(rewriteRequestID) {
                                             streamHandler(cached)
                                         }
-                                        finalizeRequest(.success(cached), cached)
+                                        finalizeRequest(.success(cached), cached, true)
                                     }
                                     return
                                 }
 
                                 await MainActor.run {
-                                    finalizeRequest(.failure(failure), nil)
+                                    finalizeRequest(.failure(failure), nil, false)
                                 }
                             }
                         }
                     }
                 }
             )
+            self.currentCancellable = cancellable
+            self.currentCancellableRequestID = rewriteRequestID
         }
 
         if requestProviderType == .local {
@@ -338,9 +422,13 @@ final class RewriteEngine: ObservableObject {
     }
 
     func cancel() {
-        currentCancellable?.cancel()
+        let cancellable = currentCancellable
         currentCancellable = nil
-        isProcessing = false
+        currentCancellableRequestID = nil
+        cancellable?.cancel()
+        if isProcessing {
+            isProcessing = false
+        }
         invalidateActiveRewriteRequest()
 
         if let providerType = activeRewriteProviderType {
@@ -474,6 +562,15 @@ final class RewriteEngine: ObservableObject {
         }
     }
 
+    func clearOfflineCache(completion: @escaping () -> Void = {}) {
+        Task { [weak self] in
+            await self?.cacheStore.clear()
+            self?.deliverOnMain {
+                completion()
+            }
+        }
+    }
+
     private func deliverOnMain(_ action: @escaping () -> Void) {
         if Thread.isMainThread {
             action()
@@ -546,22 +643,27 @@ final class RewriteEngine: ObservableObject {
         return activeRewriteRequestID == id
     }
 
+    private enum RewriteCompletionOutcome {
+        case completed(isActive: Bool)
+        case duplicate
+    }
+
     private func markRewriteRequestCompleted(
         _ id: UUID,
         result: Result<String, LLMError>,
         completion: @escaping (Result<String, LLMError>) -> Void
-    ) -> Bool {
+    ) -> RewriteCompletionOutcome {
         rewriteRequestLock.lock()
         if completedRewriteRequestID == id {
             rewriteRequestLock.unlock()
-            return false
+            return .duplicate
         }
         completedRewriteRequestID = id
         rewriteRequestLock.unlock()
 
         completion(result)
 
-        return isActiveRewriteRequest(id)
+        return .completed(isActive: isActiveRewriteRequest(id))
     }
 
     private func invalidateActiveRewriteRequest() {
@@ -569,6 +671,12 @@ final class RewriteEngine: ObservableObject {
         activeRewriteRequestID = UUID()
         completedRewriteRequestID = nil
         rewriteRequestLock.unlock()
+    }
+
+    private func clearCurrentCancellableIfMatchingRequest(_ id: UUID) {
+        guard currentCancellableRequestID == id else { return }
+        currentCancellable = nil
+        currentCancellableRequestID = nil
     }
 
     private func resolvedModelName(for provider: LLMProviderType, settings: SettingsManager) -> String {
@@ -611,6 +719,18 @@ private actor RewriteCacheStore {
         }
 
         schedulePersist()
+    }
+
+    func clear() async {
+        await loadIfNeeded()
+        entries.removeAll(keepingCapacity: false)
+        persistTask?.cancel()
+        persistTask = nil
+
+        let fileURL = fileURL()
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
     }
 
     private func loadIfNeeded() async {

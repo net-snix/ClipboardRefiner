@@ -1,21 +1,26 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 private enum TextLayoutEstimator {
     private static let bodyFont = NSFont.systemFont(ofSize: 13, weight: .regular)
     private static let monoFont = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
 
-    private static let bodyLineHeight = ceil(bodyFont.ascender - bodyFont.descender + bodyFont.leading)
-    private static let monoLineHeight = ceil(monoFont.ascender - monoFont.descender + monoFont.leading)
+    private static let bodyLineHeightValue = ceil(bodyFont.ascender - bodyFont.descender + bodyFont.leading)
+    private static let monoLineHeightValue = ceil(monoFont.ascender - monoFont.descender + monoFont.leading)
     private static let bodyCharacterWidth = ("W" as NSString).size(withAttributes: [.font: bodyFont]).width
     private static let monoCharacterWidth = ("W" as NSString).size(withAttributes: [.font: monoFont]).width
 
+    static var bodyLineHeight: CGFloat {
+        bodyLineHeightValue
+    }
+
     static func bodyHeight(for text: String, width: CGFloat) -> CGFloat {
-        estimatedHeight(for: text, width: width, lineHeight: bodyLineHeight, characterWidth: bodyCharacterWidth)
+        estimatedHeight(for: text, width: width, lineHeight: bodyLineHeightValue, characterWidth: bodyCharacterWidth)
     }
 
     static func monoHeight(for text: String, width: CGFloat) -> CGFloat {
-        estimatedHeight(for: text, width: width, lineHeight: monoLineHeight, characterWidth: monoCharacterWidth)
+        estimatedHeight(for: text, width: width, lineHeight: monoLineHeightValue, characterWidth: monoCharacterWidth)
     }
 
     private static func estimatedHeight(for text: String, width: CGFloat, lineHeight: CGFloat, characterWidth: CGFloat) -> CGFloat {
@@ -226,24 +231,25 @@ struct TextBox: View {
     var isEditable: Bool = true
     var minHeight: CGFloat = 80
     var maxHeight: CGFloat = 300
+    var maxVisibleLines: Int? = nil
     var shouldMeasureHeight: Bool = true
     var font: Font = DS.Typography.bodyFont
+    var onHeightChange: ((CGFloat) -> Void)? = nil
+    var onPasteImageProviders: (([NSItemProvider]) -> Void)? = nil
 
     @State private var measuredHeight: CGFloat = 0
     @FocusState private var isFocused: Bool
     @State private var isHovering = false
+    @State private var lastReportedHeight: CGFloat = 0
 
     var body: some View {
-        let effectiveHeight = min(max(measuredHeight + DS.Spacing.xl, minHeight), maxHeight)
+        let effectiveHeight = self.effectiveHeight
 
         ZStack(alignment: .topLeading) {
             if isEditable {
-                TextEditor(text: $text)
-                    .font(font)
-                    .scrollContentBackground(.hidden)
-                    .focused($isFocused)
+                editableTextEditor
             } else {
-                ScrollView {
+                ScrollView(.vertical, showsIndicators: true) {
                     Text(text)
                         .font(font)
                         .textSelection(.enabled)
@@ -277,6 +283,27 @@ struct TextBox: View {
         .animation(DS.Animation.quick, value: isFocused)
         .animation(DS.Animation.micro, value: isHovering)
         .background(shouldMeasureHeight ? measureText : nil)
+        .onAppear {
+            reportHeightIfNeeded()
+        }
+        .onChange(of: effectiveHeight) { _, _ in
+            reportHeightIfNeeded()
+        }
+    }
+
+    @ViewBuilder
+    private var editableTextEditor: some View {
+        let baseEditor = TextEditor(text: $text)
+            .font(font)
+            .scrollContentBackground(.hidden)
+            .scrollIndicators(.visible)
+            .focused($isFocused)
+
+        if let onPasteImageProviders {
+            baseEditor.onPasteCommand(of: [.image, .fileURL], perform: onPasteImageProviders)
+        } else {
+            baseEditor
+        }
     }
 
     private var measureText: some View {
@@ -293,6 +320,27 @@ struct TextBox: View {
         let textWidth = max(1, width - DS.Spacing.lg * 2)
         let measureText = text.isEmpty ? " " : text
         measuredHeight = TextLayoutEstimator.bodyHeight(for: measureText, width: textWidth)
+    }
+
+    private var effectiveHeight: CGFloat {
+        let lineLimitedMaxHeight: CGFloat
+        if let maxVisibleLines {
+            lineLimitedMaxHeight = CGFloat(maxVisibleLines) * TextLayoutEstimator.bodyLineHeight + DS.Spacing.xl
+        } else {
+            lineLimitedMaxHeight = maxHeight
+        }
+        let effectiveMaxHeight = min(maxHeight, lineLimitedMaxHeight)
+        return min(max(measuredHeight + DS.Spacing.xl, minHeight), effectiveMaxHeight)
+    }
+
+    private func reportHeightIfNeeded() {
+        guard let onHeightChange else { return }
+        let height = effectiveHeight
+        guard abs(height - lastReportedHeight) > 0.5 else { return }
+        lastReportedHeight = height
+        DispatchQueue.main.async {
+            onHeightChange(height)
+        }
     }
 }
 

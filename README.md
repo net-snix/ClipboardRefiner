@@ -39,6 +39,17 @@ Native macOS SwiftUI app for refining text posts with cloud or local models, ima
 3. In Settings, choose provider/model and set API key (if needed)
 4. Drag text/images, run Enhance, then Share/Copy
 
+## Performance Profiling
+
+- Runtime perf telemetry is opt-in via `CLIPBOARD_REFINER_PERF=1`.
+- Telemetry emits newline-delimited JSON records to stderr (`type=perf`) for:
+  - Rewrite request latency (`rewrite.request`)
+  - Provider stream volume/latency (`provider.stream`)
+  - Attachment ingest (`attachments.load_file`, `attachments.prepare`)
+  - Draft persistence (`menu_draft.persist`)
+- Helper script:
+  - `./scripts/perf-profile.sh 90` (builds Release, runs app with telemetry for 90s, writes JSONL path)
+
 ## Local Model Quick Start
 
 1. Install `python3` and `mlx-lm`

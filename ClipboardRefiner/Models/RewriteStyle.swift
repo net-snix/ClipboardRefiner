@@ -38,7 +38,13 @@ enum RewriteStyle: String, CaseIterable, Codable, Identifiable {
         4. Output only the rewritten text. No preamble.
         5. Do not add facts not present in the input.
         6. Preserve mixed-language input.
-        7. Do not use em dashes unless the input already uses them.
+        7. Avoid em dashes. Prefer a semicolon, comma, period, or a sentence recast unless preserving a literal quote/code fragment.
+        8. Manually read and revise the full text line by line before final output. Do not use regex-like or scripted find/replace behavior.
+        9. Remove obvious AI-writing tropes and templated phrasing, including:
+           - "It's not X, it's Y"
+           - "Here's why"
+           - "Here's why it matters:"
+        10. Prefer natural, human-sounding prose over formulaic LLM-style framing.
         """
 
         switch self {
@@ -56,7 +62,9 @@ enum RewriteStyle: String, CaseIterable, Codable, Identifiable {
             2. For code/logs, explain behavior and notable signals at a high level.
             3. Define jargon and abbreviations when useful.
             4. Do not invent details; call out ambiguity.
-            5. Output only the explanation.
+            5. Avoid em dashes and AI-writing tropes such as "It's not X, it's Y", "Here's why", or "Here's why it matters:".
+            6. Manually review and revise your wording line by line before final output; no regex-like pattern substitutions.
+            7. Output only the explanation.
             """
         case .rewrite:
             return baseRules + """
@@ -228,12 +236,14 @@ struct ImageAttachment: Identifiable, Codable, Hashable {
     let filename: String
     let mimeType: String
     let dataBase64: String
+    let contentHash: String
 
     init(id: UUID = UUID(), filename: String, mimeType: String, data: Data) {
         self.id = id
         self.filename = filename
         self.mimeType = mimeType
         self.dataBase64 = data.base64EncodedString()
+        self.contentHash = Self.makeContentHash(for: data)
     }
 
     var data: Data {
@@ -245,14 +255,50 @@ struct ImageAttachment: Identifiable, Codable, Hashable {
     }
 
     var hash: String {
-        let digest = SHA256.hash(data: data)
-        return digest.compactMap { String(format: "%02x", $0) }.joined()
+        contentHash
     }
 
     static func fromFileURL(_ url: URL) throws -> ImageAttachment {
         let data = try Data(contentsOf: url)
         let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "image/png"
         return ImageAttachment(filename: url.lastPathComponent, mimeType: mimeType, data: data)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case filename
+        case mimeType
+        case dataBase64
+        case contentHash
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        filename = try container.decode(String.self, forKey: .filename)
+        mimeType = try container.decode(String.self, forKey: .mimeType)
+        dataBase64 = try container.decode(String.self, forKey: .dataBase64)
+
+        if let decodedHash = try container.decodeIfPresent(String.self, forKey: .contentHash),
+           !decodedHash.isEmpty {
+            contentHash = decodedHash
+        } else {
+            contentHash = Self.makeContentHash(for: Data(base64Encoded: dataBase64) ?? Data())
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(filename, forKey: .filename)
+        try container.encode(mimeType, forKey: .mimeType)
+        try container.encode(dataBase64, forKey: .dataBase64)
+        try container.encode(contentHash, forKey: .contentHash)
+    }
+
+    private static func makeContentHash(for data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -290,7 +336,14 @@ struct RewriteOptions {
         }
 
         if !imageAttachments.isEmpty {
-            prompt += "\n\nImage context:\n- You may use attached images as source context.\n- If image details are unclear, say so briefly."
+            prompt += """
+
+            Image context:
+            - You may use attached images as source context.
+            - Extract all relevant information from attached images before writing.
+            - Extract readable text from attached images (OCR) and incorporate relevant details.
+            - If image details are unclear, say so briefly.
+            """
         }
 
         prompt += inputContainmentGuidance
