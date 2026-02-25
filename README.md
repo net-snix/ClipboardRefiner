@@ -11,6 +11,17 @@ Native macOS SwiftUI app for refining text posts with cloud or local models, ima
 - Prompt `Skills` bundle (in-app + Codex skill files)
 - Local LLM support via on-device model paths
 
+## Recent Performance Updates (2026-02)
+
+- Stream UI updates are coalesced (~30 FPS) to reduce main-thread churn on long generations.
+- Rewrite output hot-path overpublishing was reduced (`currentOutput` is no longer `@Published`).
+- Cancel handling is non-blocking (removed synchronous semaphore waits in cancellable handler path).
+- Result panel height measurement is suppressed while streaming, and popover window sizing updates are debounced.
+- Pasted image-path auto-detection adds cheap early guards before expensive diffing.
+- Behavior settings reduce write/publish storms:
+  - Aggressiveness commits on slider release (staged local draft while dragging)
+  - System prompt editor commits are debounced (~300ms)
+
 ## Features
 
 - Providers: OpenAI, Anthropic, xAI, Local

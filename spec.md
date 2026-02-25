@@ -8,6 +8,17 @@ ClipboardRefiner is a macOS menu bar application that leverages AI to refine, re
 **Business Model:** One-time purchase (paid app with perpetual license)
 **Distribution:** Multiple channels (Mac App Store + direct download/Homebrew)
 
+### Recently Shipped (2026-02)
+
+- Stream output rendering now uses coalesced UI updates (~30 FPS) to reduce main-thread thrash on long outputs.
+- Rewrite engine output overpublishing was reduced (`currentOutput` is no longer `@Published`).
+- Cancellation path removed blocking semaphore waits in cancellable handler execution (non-blocking cancel handler dispatch).
+- Menu bar result section now avoids continuous height measurement during active streaming and debounces window resizing updates.
+- Pasted image-path detection adds cheap guard checks before running full inserted-segment diff logic.
+- Behavior settings writes are staged/debounced:
+  - Aggressiveness slider commits on drag end
+  - System prompt editor writes are debounced
+
 ---
 
 ## Core Functionality
@@ -169,8 +180,9 @@ Power users can bind different hotkeys to different styles for maximum efficienc
 ## Streaming & Error Handling
 
 ### Streaming Behavior
-- Real-time SSE parsing for live output
+- Real-time SSE parsing for live output with coalesced UI delivery (~30 FPS target)
 - Toggle to enable/disable streaming
+- Final stream output is force-flushed before completion callback
 
 ### Stream Failure Recovery
 When streaming fails mid-response (network hiccup, rate limit):
@@ -267,6 +279,7 @@ User can override per-use; global setting serves as fallback.
 SwiftUI native approach with Combine:
 - `@Published` properties in managers
 - `@ObservedObject` in views
+- Hot-path output publishing reduced to limit global invalidation fan-out during streaming
 - No external state management library needed
 
 ### Key Storage
@@ -284,9 +297,9 @@ SwiftUI native approach with Combine:
 ## Quality Assurance
 
 ### Memory Profiling
-- **Status:** Not yet profiled
-- **Action:** Run Instruments memory profiling for extended sessions
-- **Focus:** History growth, streaming buffer handling
+- **Status:** Performance hardening in progress (multiple hot-path reductions shipped)
+- **Action:** Run Instruments Allocations/Time Profiler/Leaks for before-vs-after quantification
+- **Focus:** streaming buffers, attachment payload peaks, history/cache persistence churn
 
 ### Accessibility
 - **Status:** Not a priority
