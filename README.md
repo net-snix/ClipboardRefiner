@@ -19,6 +19,7 @@ Native macOS SwiftUI app for refining text posts with cloud or local models, ima
 - Result panel height measurement is suppressed while streaming, and popover window sizing updates are debounced.
 - Pasted image-path auto-detection adds cheap early guards before expensive diffing.
 - Pasted image-path detection now fast-paths local paths and only URL-parses explicit `file://` input.
+- API-key readiness checks now query Keychain metadata first and only load full secrets when a caller needs the actual key value.
 - Behavior settings reduce write/publish storms:
   - Aggressiveness commits on slider release (staged local draft while dragging)
   - System prompt editor commits are debounced (~300ms)
