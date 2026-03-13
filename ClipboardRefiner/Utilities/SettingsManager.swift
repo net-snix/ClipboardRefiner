@@ -122,6 +122,7 @@ final class SettingsManager: ObservableObject {
     private var pendingMenuDraftSaveWorkItem: DispatchWorkItem?
     private let apiKeyCacheLock = NSLock()
     private var apiKeyCache: [LLMProviderType: String?] = [:]
+    private var apiKeyPresenceCache: [LLMProviderType: Bool] = [:]
     private var cachedMenuDraftText = ""
 
     private enum Keys {
@@ -411,7 +412,15 @@ final class SettingsManager: ObservableObject {
     }
 
     func hasAPIKey(for provider: LLMProviderType) -> Bool {
-        cachedAPIKey(for: provider) != nil
+        guard provider.usesAPIKey else { return true }
+
+        if let cachedPresence = cachedAPIKeyPresence(for: provider) {
+            return cachedPresence
+        }
+
+        let hasKey = KeychainHelper.shared.exists(forKey: provider.apiKeyIdentifier)
+        setCachedAPIKeyPresence(hasKey, for: provider)
+        return hasKey
     }
 
     var selectedLocalModelPath: String? {
@@ -653,9 +662,27 @@ final class SettingsManager: ObservableObject {
         return loadedValue
     }
 
+    private func cachedAPIKeyPresence(for provider: LLMProviderType) -> Bool? {
+        apiKeyCacheLock.lock()
+        defer { apiKeyCacheLock.unlock() }
+
+        if let cachedValue = apiKeyCache[provider] {
+            return cachedValue != nil
+        }
+
+        return apiKeyPresenceCache[provider]
+    }
+
     private func setCachedAPIKey(_ value: String?, for provider: LLMProviderType) {
         apiKeyCacheLock.lock()
         apiKeyCache[provider] = .some(value)
+        apiKeyPresenceCache[provider] = value != nil
+        apiKeyCacheLock.unlock()
+    }
+
+    private func setCachedAPIKeyPresence(_ exists: Bool, for provider: LLMProviderType) {
+        apiKeyCacheLock.lock()
+        apiKeyPresenceCache[provider] = exists
         apiKeyCacheLock.unlock()
     }
 
