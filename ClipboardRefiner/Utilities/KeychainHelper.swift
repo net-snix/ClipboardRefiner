@@ -31,17 +31,21 @@ final class KeychainHelper {
 
     private init() {}
 
+    private func baseQuery(forKey key: String) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: key
+        ]
+    }
+
     func save(_ value: String, forKey key: String) throws {
         guard let data = value.data(using: .utf8) else {
             throw KeychainError.encodingError
         }
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecAttrAccount as String: key,
-            kSecValueData as String: data
-        ]
+        var query = baseQuery(forKey: key)
+        query[kSecValueData as String] = data
 
         let status = SecItemAdd(query as CFDictionary, nil)
 
@@ -53,11 +57,7 @@ final class KeychainHelper {
     }
 
     private func update(_ data: Data, forKey key: String) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecAttrAccount as String: key
-        ]
+        let query = baseQuery(forKey: key)
 
         let attributes: [String: Any] = [
             kSecValueData as String: data
@@ -71,13 +71,9 @@ final class KeychainHelper {
     }
 
     func retrieve(forKey key: String) throws -> String {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
+        var query = baseQuery(forKey: key)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
 
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
@@ -98,11 +94,7 @@ final class KeychainHelper {
     }
 
     func delete(forKey key: String) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecAttrAccount as String: key
-        ]
+        let query = baseQuery(forKey: key)
 
         let status = SecItemDelete(query as CFDictionary)
 
@@ -112,10 +104,16 @@ final class KeychainHelper {
     }
 
     func exists(forKey key: String) -> Bool {
-        do {
-            _ = try retrieve(forKey: key)
+        var query = baseQuery(forKey: key)
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+
+        let status = SecItemCopyMatching(query as CFDictionary, nil)
+        switch status {
+        case errSecSuccess:
             return true
-        } catch {
+        case errSecItemNotFound:
+            return false
+        default:
             return false
         }
     }
