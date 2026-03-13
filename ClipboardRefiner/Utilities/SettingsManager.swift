@@ -123,6 +123,8 @@ final class SettingsManager: ObservableObject {
     private let apiKeyCacheLock = NSLock()
     private var apiKeyCache: [LLMProviderType: String?] = [:]
     private var apiKeyPresenceCache: [LLMProviderType: Bool] = [:]
+    private let modelPreferenceCacheLock = NSLock()
+    private var cloudModelPreferenceCache: [LLMProviderType: String] = [:]
     private var cachedMenuDraftText = ""
 
     private enum Keys {
@@ -317,7 +319,13 @@ final class SettingsManager: ObservableObject {
             let selectedLocal = localModelName(for: selectedModel)
             return selectedLocal ?? localModelPaths.first?.modelName ?? ""
         case .openai, .anthropic, .xai:
-            return storedModelPreference(for: provider) ?? provider.defaultModel
+            if let cachedModel = cachedCloudModelPreference(for: provider) {
+                return cachedModel
+            }
+
+            let resolvedModel = storedModelPreference(for: provider) ?? provider.defaultModel
+            setCachedCloudModelPreference(resolvedModel, for: provider)
+            return resolvedModel
         }
     }
 
@@ -680,6 +688,19 @@ final class SettingsManager: ObservableObject {
         apiKeyCacheLock.unlock()
     }
 
+    private func cachedCloudModelPreference(for provider: LLMProviderType) -> String? {
+        modelPreferenceCacheLock.lock()
+        defer { modelPreferenceCacheLock.unlock() }
+        return cloudModelPreferenceCache[provider]
+    }
+
+    private func setCachedCloudModelPreference(_ model: String, for provider: LLMProviderType) {
+        guard provider != .local else { return }
+        modelPreferenceCacheLock.lock()
+        cloudModelPreferenceCache[provider] = model
+        modelPreferenceCacheLock.unlock()
+    }
+
     private func setCachedAPIKeyPresence(_ exists: Bool, for provider: LLMProviderType) {
         apiKeyCacheLock.lock()
         apiKeyPresenceCache[provider] = exists
@@ -829,6 +850,7 @@ final class SettingsManager: ObservableObject {
         let normalized = Self.normalizedModel(model, for: provider) ?? model
         let resolvedModel = provider.availableModels.contains(normalized) ? normalized : provider.defaultModel
         defaults.set(resolvedModel, forKey: key)
+        setCachedCloudModelPreference(resolvedModel, for: provider)
     }
 
     private static func seedCloudModelPreferencesIfNeeded(
