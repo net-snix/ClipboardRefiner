@@ -276,7 +276,7 @@ struct MenuBarView: View {
                         .font(DS.Typography.microFont)
                         .foregroundStyle(DS.Colors.textMuted)
                 } else {
-                    Picker("Local model", selection: localModelSelectionBinding) {
+                    Picker("Local model", selection: $settings.selectedModel) {
                         ForEach(settings.localModelPaths) { entry in
                             Text(entry.modelName).tag(entry.modelName)
                         }
@@ -313,7 +313,7 @@ struct MenuBarView: View {
                 }
             }
         } else {
-            Picker("Model", selection: cloudModelSelectionBinding) {
+            Picker("Model", selection: $settings.selectedModel) {
                 ForEach(settings.selectedProvider.availableModels, id: \.self) { model in
                     Text(SettingsManager.displayModelName(model, for: settings.selectedProvider)).tag(model)
                 }
@@ -322,58 +322,6 @@ struct MenuBarView: View {
             .pickerStyle(.menu)
             .frame(width: 150, alignment: .leading)
         }
-    }
-
-    private var localModelSelectionBinding: Binding<String> {
-        Binding(
-            get: {
-                resolvedLocalModelSelection
-            },
-            set: { newValue in
-                settings.selectedModel = newValue
-            }
-        )
-    }
-
-    private var cloudModelSelectionBinding: Binding<String> {
-        Binding(
-            get: {
-                resolvedCloudModelSelection(for: settings.selectedProvider)
-            },
-            set: { newValue in
-                settings.selectedModel = newValue
-            }
-        )
-    }
-
-    private var resolvedLocalModelSelection: String {
-        guard let first = settings.localModelPaths.first?.modelName else {
-            return ""
-        }
-
-        if let matched = settings.localModelPaths.first(where: {
-            $0.modelName.caseInsensitiveCompare(settings.selectedModel) == .orderedSame
-        }) {
-            return matched.modelName
-        }
-
-        return first
-    }
-
-    private func resolvedCloudModelSelection(for provider: LLMProviderType) -> String {
-        let models = provider.availableModels
-        guard !models.isEmpty else { return settings.selectedModel }
-
-        if models.contains(settings.selectedModel) {
-            return settings.selectedModel
-        }
-
-        let preferred = settings.modelDefault(for: provider)
-        if models.contains(preferred) {
-            return preferred
-        }
-
-        return models[0]
     }
 
     private var skillControl: some View {
@@ -401,7 +349,7 @@ struct MenuBarView: View {
 
     private var showsOpenAIReasoningEffort: Bool {
         guard settings.selectedProvider == .openai else { return false }
-        return SettingsManager.isOpenAIReasoningModel(resolvedCloudModelSelection(for: .openai))
+        return SettingsManager.isOpenAIReasoningModel(settings.selectedModel)
     }
 
     private func controlColumn<Content: View>(
