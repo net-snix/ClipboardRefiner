@@ -18,6 +18,7 @@ Native macOS SwiftUI app for refining text posts with cloud or local models, ima
 - Cancel-handler dispatch is non-blocking (removed synchronous semaphore waits in cancellable handler path).
 - Result panel height measurement is suppressed while streaming, and popover window sizing updates are debounced.
 - Pasted image-path auto-detection adds cheap early guards before expensive diffing.
+- Pasted image-path detection now fast-paths local paths and only URL-parses explicit `file://` input.
 - Behavior settings reduce write/publish storms:
   - Aggressiveness commits on slider release (staged local draft while dragging)
   - System prompt editor commits are debounced (~300ms)
@@ -79,6 +80,7 @@ Reusable prompt templates also live in:
 ## Privacy
 
 - History/cache are local files on-device
+- Offline rewrite cache now fails closed if the Application Support directory is unavailable; it never falls back to temporary storage.
 - No telemetry by default
 - Optional local perf telemetry can be enabled with `CLIPBOARD_REFINER_PERF=1` (emits JSON lines to stderr)
 - With Local provider, prompts stay on-device
