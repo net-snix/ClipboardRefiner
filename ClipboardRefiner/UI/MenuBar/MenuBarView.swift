@@ -693,8 +693,7 @@ struct MenuBarView: View {
     }
 
     private var bodyLineHeight: CGFloat {
-        let font = NSFont.systemFont(ofSize: 13, weight: .regular)
-        return ceil(font.ascender - font.descender + font.leading)
+        DS.Typography.bodyLineHeight
     }
 
     private var textBoxMaxHeight: CGFloat {
@@ -1263,6 +1262,19 @@ private struct AttachmentItem: Identifiable {
     let attachment: ImageAttachment
     let thumbnail: NSImage?
     let byteCount: Int
+    let metadataLabel: String
+
+    init(attachment: ImageAttachment, thumbnail: NSImage?, byteCount: Int) {
+        self.attachment = attachment
+        self.thumbnail = thumbnail
+        self.byteCount = byteCount
+
+        let format = attachment.mimeType
+            .replacingOccurrences(of: "image/", with: "")
+            .uppercased()
+        let size = ByteCountFormatter.string(fromByteCount: Int64(byteCount), countStyle: .file)
+        self.metadataLabel = "\(format) | \(size)"
+    }
 
     var id: UUID { attachment.id }
 }
@@ -1305,7 +1317,7 @@ private struct AttachmentChip: View {
                     .lineLimit(1)
                     .foregroundStyle(DS.Colors.textSecondary)
 
-                Text(metadataLabel)
+                Text(item.metadataLabel)
                     .font(DS.Typography.microFont)
                     .lineLimit(1)
                     .foregroundStyle(DS.Colors.textMuted)
@@ -1337,14 +1349,6 @@ private struct AttachmentChip: View {
         )
         .onHover { isHovering = $0 }
         .animation(DS.Animation.micro, value: isHovering)
-    }
-
-    private var metadataLabel: String {
-        let format = item.attachment.mimeType
-            .replacingOccurrences(of: "image/", with: "")
-            .uppercased()
-        let size = ByteCountFormatter.string(fromByteCount: Int64(item.byteCount), countStyle: .file)
-        return "\(format) | \(size)"
     }
 }
 

@@ -75,6 +75,7 @@ enum DS {
         static let bodyFont = Font.system(size: 13, weight: .regular)
         static let captionFont = Font.system(size: 11, weight: .medium)
         static let microFont = Font.system(size: 10, weight: .medium)
+        static let bodyLineHeight = TextLayoutEstimator.bodyLineHeight
     }
 
     // MARK: - Colors
