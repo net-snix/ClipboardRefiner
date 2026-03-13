@@ -110,11 +110,11 @@ final class AnthropicProvider: LLMProvider {
 
                     if let delta = Self.extractStreamDelta(from: json) {
                         streamDeltaChars += delta.count
-                        Self.mergeStreamOutput(delta, into: &accumulatedOutput, streamHandler: streamHandler)
+                        ProviderHTTP.mergeStreamOutput(delta, into: &accumulatedOutput, streamHandler: streamHandler)
                     }
 
                     if let snapshot = Self.extractStreamSnapshot(from: json) {
-                        Self.mergeStreamOutput(snapshot, into: &accumulatedOutput, streamHandler: streamHandler)
+                        ProviderHTTP.mergeStreamOutput(snapshot, into: &accumulatedOutput, streamHandler: streamHandler)
                     }
                 },
                 completion: { result in
@@ -272,21 +272,4 @@ final class AnthropicProvider: LLMProvider {
         return text.isEmpty ? nil : text
     }
 
-    private static func mergeStreamOutput(
-        _ candidate: String,
-        into accumulated: inout String,
-        streamHandler: @escaping (String) -> Void
-    ) {
-        guard !candidate.isEmpty else { return }
-        if candidate.hasPrefix(accumulated) {
-            guard candidate.count > accumulated.count else { return }
-            accumulated = candidate
-        } else {
-            accumulated.append(contentsOf: candidate)
-        }
-        let output = accumulated
-        ProviderHTTP.deliverOnMain {
-            streamHandler(output)
-        }
-    }
 }

@@ -169,6 +169,26 @@ enum ProviderHTTP {
             DispatchQueue.main.async(execute: action)
         }
     }
+
+    static func mergeStreamOutput(
+        _ candidate: String,
+        into accumulated: inout String,
+        streamHandler: @escaping (String) -> Void
+    ) {
+        guard !candidate.isEmpty else { return }
+
+        if candidate.hasPrefix(accumulated) {
+            guard candidate.count > accumulated.count else { return }
+            accumulated = candidate
+        } else {
+            accumulated.append(contentsOf: candidate)
+        }
+
+        let output = accumulated
+        deliverOnMain {
+            streamHandler(output)
+        }
+    }
 }
 
 final class OpenAIProvider: LLMProvider {
@@ -270,11 +290,11 @@ final class OpenAIProvider: LLMProvider {
 
                     if let delta = Self.extractStreamDelta(event: event, from: json) {
                         streamDeltaChars += delta.count
-                        Self.mergeStreamOutput(delta, into: &accumulatedOutput, streamHandler: streamHandler)
+                        ProviderHTTP.mergeStreamOutput(delta, into: &accumulatedOutput, streamHandler: streamHandler)
                     }
 
                     if let snapshot = Self.extractStreamSnapshot(event: event, from: json) {
-                        Self.mergeStreamOutput(snapshot, into: &accumulatedOutput, streamHandler: streamHandler)
+                        ProviderHTTP.mergeStreamOutput(snapshot, into: &accumulatedOutput, streamHandler: streamHandler)
                     }
                 },
                 completion: { result in
@@ -395,24 +415,6 @@ final class OpenAIProvider: LLMProvider {
         }
 
         return nil
-    }
-
-    private static func mergeStreamOutput(
-        _ candidate: String,
-        into accumulated: inout String,
-        streamHandler: @escaping (String) -> Void
-    ) {
-        guard !candidate.isEmpty else { return }
-        if candidate.hasPrefix(accumulated) {
-            guard candidate.count > accumulated.count else { return }
-            accumulated = candidate
-        } else {
-            accumulated.append(contentsOf: candidate)
-        }
-        let output = accumulated
-        ProviderHTTP.deliverOnMain {
-            streamHandler(output)
-        }
     }
 
     private static func extractOutputText(from json: [String: Any]) -> String? {
@@ -540,11 +542,11 @@ final class XAIProvider: LLMProvider {
 
                     if let delta = Self.extractStreamDelta(from: json) {
                         streamDeltaChars += delta.count
-                        Self.mergeStreamOutput(delta, into: &accumulatedOutput, streamHandler: streamHandler)
+                        ProviderHTTP.mergeStreamOutput(delta, into: &accumulatedOutput, streamHandler: streamHandler)
                     }
 
                     if let snapshot = Self.extractStreamSnapshot(from: json) {
-                        Self.mergeStreamOutput(snapshot, into: &accumulatedOutput, streamHandler: streamHandler)
+                        ProviderHTTP.mergeStreamOutput(snapshot, into: &accumulatedOutput, streamHandler: streamHandler)
                     }
                 },
                 completion: { result in
@@ -675,23 +677,6 @@ final class XAIProvider: LLMProvider {
         extractText(from: json)
     }
 
-    private static func mergeStreamOutput(
-        _ candidate: String,
-        into accumulated: inout String,
-        streamHandler: @escaping (String) -> Void
-    ) {
-        guard !candidate.isEmpty else { return }
-        if candidate.hasPrefix(accumulated) {
-            guard candidate.count > accumulated.count else { return }
-            accumulated = candidate
-        } else {
-            accumulated.append(contentsOf: candidate)
-        }
-        let output = accumulated
-        ProviderHTTP.deliverOnMain {
-            streamHandler(output)
-        }
-    }
 }
 
 final class LocalModelProvider: LLMProvider {
