@@ -860,7 +860,10 @@ struct MenuBarView: View {
         }
 
         let fileURL: URL
-        if let parsedURL = URL(string: unquoted), parsedURL.isFileURL {
+        if unquoted.hasPrefix("file://") {
+            guard let parsedURL = URL(string: unquoted), parsedURL.isFileURL else {
+                return nil
+            }
             fileURL = parsedURL
         } else {
             let expandedPath = (unquoted as NSString).expandingTildeInPath

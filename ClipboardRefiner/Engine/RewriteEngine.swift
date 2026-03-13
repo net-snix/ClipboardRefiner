@@ -701,6 +701,8 @@ private actor RewriteCacheStore {
     private var entries: [String: CacheEntry] = [:]
     private var hasLoaded = false
     private var persistTask: Task<Void, Never>?
+    private let cacheFileURL = RewriteCacheStore.resolveCacheFileURL()
+    private var hasLoggedUnavailableStorage = false
     private let maxEntries = 300
     private static let persistDelayNanoseconds: UInt64 = 350_000_000
 
@@ -727,17 +729,24 @@ private actor RewriteCacheStore {
         persistTask?.cancel()
         persistTask = nil
 
-        let fileURL = fileURL()
-        if FileManager.default.fileExists(atPath: fileURL.path) {
-            try? FileManager.default.removeItem(at: fileURL)
+        guard let cacheFileURL else {
+            logUnavailableStorageIfNeeded()
+            return
         }
+
+        try? FileManager.default.removeItem(at: cacheFileURL)
     }
 
     private func loadIfNeeded() async {
         guard !hasLoaded else { return }
         hasLoaded = true
 
-        guard let data = try? Data(contentsOf: fileURL(), options: [.mappedIfSafe]) else {
+        guard let cacheFileURL else {
+            logUnavailableStorageIfNeeded()
+            return
+        }
+
+        guard let data = try? Data(contentsOf: cacheFileURL, options: [.mappedIfSafe]) else {
             return
         }
 
@@ -768,21 +777,38 @@ private actor RewriteCacheStore {
         }
 
         do {
-            let url = fileURL()
+            guard let cacheFileURL else {
+                logUnavailableStorageIfNeeded()
+                return
+            }
+
             try FileManager.default.createDirectory(
-                at: url.deletingLastPathComponent(),
+                at: cacheFileURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true,
                 attributes: nil
             )
-            try data.write(to: url, options: .atomic)
+            try data.write(to: cacheFileURL, options: .atomic)
         } catch {
             AppLogger.shared.error("Failed to persist rewrite cache: \(error.localizedDescription)")
         }
     }
 
-    private func fileURL() -> URL {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+    private func logUnavailableStorageIfNeeded() {
+        guard !hasLoggedUnavailableStorage else { return }
+        hasLoggedUnavailableStorage = true
+        AppLogger.shared.warning(
+            "Rewrite cache disabled: Application Support directory is unavailable."
+        )
+    }
+
+    private static func resolveCacheFileURL() -> URL? {
+        guard let appSupport = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return nil
+        }
+
         return appSupport
             .appendingPathComponent("ClipboardRefiner", isDirectory: true)
             .appendingPathComponent("rewrite-cache.json")

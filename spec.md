@@ -107,6 +107,7 @@ ClipboardRefiner is a native macOS menu bar application for rewriting or explain
 - Result panel height measurement suppressed during active streaming.
 - Window sizing updates debounced.
 - Pasted image-path detection has early guard checks before diffing.
+- Single-line image-path detection now fast-paths local file paths and only URL-parses explicit `file://` inputs.
 - Settings write churn reduced:
   - Aggressiveness commits on slider release.
   - System prompt commits are debounced (~300ms).
@@ -124,6 +125,7 @@ ClipboardRefiner is a native macOS menu bar application for rewriting or explain
 - API keys: macOS Keychain.
 - Settings + rewrite history: UserDefaults.
 - Offline rewrite cache: local JSON file in Application Support (`rewrite-cache.json`).
+- If Application Support cannot be resolved, offline cache is disabled instead of falling back to temporary storage.
 - History cap: 150 entries.
 - Offline cache cap: 300 entries.
 - No telemetry by default.
