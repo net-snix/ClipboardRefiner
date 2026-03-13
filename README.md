@@ -1,4 +1,4 @@
-# Post Enhancer 2.0 (Clipboard Refiner V2)
+# Clipboard Refiner
 
 Native macOS SwiftUI app for refining text posts with cloud or local models, image context, and offline-safe caching.
 
