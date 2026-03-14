@@ -457,94 +457,16 @@ struct MenuBarView: View {
     }
 
     private var attachmentsSection: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                SectionHeader("Image Context", icon: "photo.on.rectangle") {
-                    AnyView(
-                        Tag(
-                            text: "\(attachments.count)/\(maxAttachments)",
-                            color: attachments.isEmpty ? DS.Colors.textTertiary : DS.Colors.accent,
-                            size: .small
-                        )
-                    )
-                }
-
-                VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                    HStack(spacing: DS.Spacing.sm) {
-                        Image(systemName: "tray.and.arrow.down")
-                            .foregroundStyle(isDropTargeted ? DS.Colors.accent : DS.Colors.textTertiary)
-                        Text(attachments.isEmpty ? "Drop or paste up to \(maxAttachments) images" : "Drop or paste to add more images")
-                            .font(DS.Typography.captionFont)
-                            .foregroundStyle(DS.Colors.textSecondary)
-                    }
-
-                    if attachments.isEmpty {
-                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
-                            Text("PNG, JPEG, HEIC, TIFF")
-                                .font(DS.Typography.microFont)
-                                .foregroundStyle(DS.Colors.textMuted)
-                            Text("Max 8 MB each")
-                                .font(DS.Typography.microFont)
-                                .foregroundStyle(DS.Colors.textMuted)
-                        }
-                        .padding(DS.Spacing.sm)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            RoundedRectangle(cornerRadius: DS.Radius.sm)
-                                .fill(DS.Colors.surfaceSecondary)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.sm)
-                                .strokeBorder(DS.Colors.borderSubtle, lineWidth: 1)
-                        )
-                    } else {
-                        ScrollView(.vertical, showsIndicators: false) {
-                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                                ForEach(attachments) { item in
-                                    AttachmentChip(item: item) {
-                                        removeAttachment(item.id)
-                                    }
-                                    .transition(.asymmetric(
-                                        insertion: .scale(scale: 0.9).combined(with: .opacity),
-                                        removal: .opacity
-                                    ))
-                                }
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    }
-
-                    Text("Cloud providers only. Local provider ignores image context.")
-                        .font(DS.Typography.microFont)
-                        .foregroundStyle(DS.Colors.textMuted)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(DS.Spacing.md)
-                .frame(
-                    maxWidth: .infinity,
-                    minHeight: composerPanelHeight,
-                    maxHeight: composerPanelHeight,
-                    alignment: .topLeading
-                )
-                .background(
-                    RoundedRectangle(cornerRadius: DS.Radius.md)
-                        .fill(isDropTargeted ? DS.Colors.accentSubtle : DS.Colors.surfacePrimary)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: DS.Radius.md)
-                        .stroke(
-                            isDropTargeted ? DS.Colors.accent.opacity(0.55) : DS.Colors.border,
-                            style: StrokeStyle(lineWidth: isDropTargeted ? 1.4 : 1, dash: attachments.isEmpty ? [6, 4] : [])
-                        )
-                )
-                .onDrop(
-                    of: [UTType.fileURL.identifier, UTType.image.identifier],
-                    isTargeted: $isDropTargeted,
-                    perform: handleDrop
-                )
-            }
-        }
+        AttachmentsPanel(
+            attachments: attachments,
+            maxAttachments: maxAttachments,
+            composerPanelHeight: composerPanelHeight,
+            isDropTargeted: isDropTargeted,
+            onRemove: removeAttachment,
+            handleDrop: handleDrop,
+            dropTargetBinding: $isDropTargeted
+        )
+        .equatable()
         .frame(width: imagePanelWidth, alignment: .topLeading)
         .glassMorph(id: "attachments", namespace: glassNamespace)
     }
@@ -1258,7 +1180,7 @@ struct MenuBarView: View {
     }
 }
 
-private struct AttachmentItem: Identifiable {
+private struct AttachmentItem: Identifiable, Equatable {
     let attachment: ImageAttachment
     let thumbnail: NSImage?
     let byteCount: Int
@@ -1277,6 +1199,14 @@ private struct AttachmentItem: Identifiable {
     }
 
     var id: UUID { attachment.id }
+
+    static func == (lhs: AttachmentItem, rhs: AttachmentItem) -> Bool {
+        lhs.attachment.id == rhs.attachment.id &&
+        lhs.attachment.hash == rhs.attachment.hash &&
+        lhs.byteCount == rhs.byteCount &&
+        lhs.metadataLabel == rhs.metadataLabel &&
+        (lhs.thumbnail != nil) == (rhs.thumbnail != nil)
+    }
 }
 
 private struct MenuBarContentHeightPreferenceKey: PreferenceKey {
@@ -1350,6 +1280,115 @@ private struct AttachmentChip: View {
         .onHover { isHovering = $0 }
         .animation(DS.Animation.micro, value: isHovering)
     }
+}
+
+private struct AttachmentsPanel: View, Equatable {
+    let attachments: [AttachmentItem]
+    let maxAttachments: Int
+    let composerPanelHeight: CGFloat
+    let isDropTargeted: Bool
+    let onRemove: (UUID) -> Void
+    let handleDrop: ([NSItemProvider]) -> Bool
+    @Binding var dropTargetBinding: Bool
+
+    static func == (lhs: AttachmentsPanel, rhs: AttachmentsPanel) -> Bool {
+        lhs.attachments == rhs.attachments &&
+        lhs.maxAttachments == rhs.maxAttachments &&
+        lhs.composerPanelHeight == rhs.composerPanelHeight &&
+        lhs.isDropTargeted == rhs.isDropTargeted
+    }
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                SectionHeader("Image Context", icon: "photo.on.rectangle") {
+                    AnyView(
+                        Tag(
+                            text: "\(attachments.count)/\(maxAttachments)",
+                            color: attachments.isEmpty ? DS.Colors.textTertiary : DS.Colors.accent,
+                            size: .small
+                        )
+                    )
+                }
+
+                VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                    HStack(spacing: DS.Spacing.sm) {
+                        Image(systemName: "tray.and.arrow.down")
+                            .foregroundStyle(isDropTargeted ? DS.Colors.accent : DS.Colors.textTertiary)
+                        Text(attachments.isEmpty ? "Drop or paste up to \(maxAttachments) images" : "Drop or paste to add more images")
+                            .font(DS.Typography.captionFont)
+                            .foregroundStyle(DS.Colors.textSecondary)
+                    }
+
+                    if attachments.isEmpty {
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            Text("PNG, JPEG, HEIC, TIFF")
+                                .font(DS.Typography.microFont)
+                                .foregroundStyle(DS.Colors.textMuted)
+                            Text("Max 8 MB each")
+                                .font(DS.Typography.microFont)
+                                .foregroundStyle(DS.Colors.textMuted)
+                        }
+                        .padding(DS.Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                .fill(DS.Colors.surfaceSecondary)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                .strokeBorder(DS.Colors.borderSubtle, lineWidth: 1)
+                        )
+                    } else {
+                        ScrollView(.vertical, showsIndicators: false) {
+                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                                ForEach(attachments) { item in
+                                    AttachmentChip(item: item) {
+                                        onRemove(item.id)
+                                    }
+                                    .transition(.asymmetric(
+                                        insertion: .scale(scale: 0.9).combined(with: .opacity),
+                                        removal: .opacity
+                                    ))
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+
+                    Text("Cloud providers only. Local provider ignores image context.")
+                        .font(DS.Typography.microFont)
+                        .foregroundStyle(DS.Colors.textMuted)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(DS.Spacing.md)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: composerPanelHeight,
+                    maxHeight: composerPanelHeight,
+                    alignment: .topLeading
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .fill(isDropTargeted ? DS.Colors.accentSubtle : DS.Colors.surfacePrimary)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(
+                            isDropTargeted ? DS.Colors.accent.opacity(0.55) : DS.Colors.border,
+                            style: StrokeStyle(lineWidth: isDropTargeted ? 1.4 : 1, dash: attachments.isEmpty ? [6, 4] : [])
+                        )
+                )
+                .onDrop(
+                    of: [UTType.fileURL.identifier, UTType.image.identifier],
+                    isTargeted: $dropTargetBinding,
+                    perform: handleDrop
+                )
+            }
+        }
+    }
+
 }
 
 #if DEBUG
