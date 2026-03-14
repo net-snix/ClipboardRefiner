@@ -1035,8 +1035,7 @@ struct MenuBarView: View {
 
     private func copyResult() {
         guard !outputText.isEmpty else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(outputText, forType: .string)
+        NSPasteboard.general.replaceTextContents(with: outputText)
     }
 
     private func shareResult() {

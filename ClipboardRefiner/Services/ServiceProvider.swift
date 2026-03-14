@@ -53,12 +53,10 @@ import Foundation
             ) { result in
                 switch result {
                 case .replace(let newText):
-                    pboard.clearContents()
-                    pboard.setString(newText, forType: .string)
+                    pboard.replaceTextContents(with: newText)
 
                 case .copy(let newText):
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(newText, forType: .string)
+                    NSPasteboard.general.replaceTextContents(with: newText)
 
                 case .cancel:
                     break
@@ -93,12 +91,19 @@ import Foundation
         RewriteEngine.shared.rewriteForService(text: text, style: style) { result in
             switch result {
             case .success(let rewrittenText):
-                pboard.clearContents()
-                pboard.setString(rewrittenText, forType: .string)
+                pboard.replaceTextContents(with: rewrittenText)
 
             case .failure(let llmError):
                 AppLogger.shared.error("Quick rewrite failed: \(llmError.localizedDescription)")
             }
         }
+    }
+}
+
+extension NSPasteboard {
+    @discardableResult
+    func replaceTextContents(with string: String) -> Bool {
+        clearContents()
+        return setString(string, forType: .string)
     }
 }

@@ -92,8 +92,7 @@ struct RewriteClipboardIntent: AppIntent {
 
         switch result {
         case .success(let rewrittenText):
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(rewrittenText, forType: .string)
+            NSPasteboard.general.replaceTextContents(with: rewrittenText)
             return .result(value: rewrittenText)
 
         case .failure(let error):
