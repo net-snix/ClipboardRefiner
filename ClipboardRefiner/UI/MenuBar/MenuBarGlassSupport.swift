@@ -153,6 +153,7 @@ struct ShareSheetAnchorView: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
+            guard anchor !== nsView else { return }
             anchor = nsView
         }
     }
