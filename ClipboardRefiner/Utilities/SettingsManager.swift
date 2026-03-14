@@ -432,12 +432,7 @@ final class SettingsManager: ObservableObject {
     }
 
     func localModelPath(for modelName: String) -> String? {
-        let trimmedName = modelName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return nil }
-
-        return localModelPaths.first {
-            $0.modelName.caseInsensitiveCompare(trimmedName) == .orderedSame
-        }?.path
+        localModelEntry(for: modelName)?.path
     }
 
     @discardableResult
@@ -705,13 +700,17 @@ final class SettingsManager: ObservableObject {
         }
     }
 
-    private func localModelName(for candidate: String) -> String? {
+    private func localModelEntry(for candidate: String) -> LocalModelPathEntry? {
         let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
         return localModelPaths.first {
             $0.modelName.caseInsensitiveCompare(trimmed) == .orderedSame
-        }?.modelName
+        }
+    }
+
+    private func localModelName(for candidate: String) -> String? {
+        localModelEntry(for: candidate)?.modelName
     }
 
     private func scheduleModelReconciliation(triggeredBy reason: ModelReconcileReason) {
