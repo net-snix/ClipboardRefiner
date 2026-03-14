@@ -89,24 +89,24 @@ final class PopupViewModel: ObservableObject {
 }
 
 struct PopupView: View {
-    @ObservedObject var viewModel: PopupViewModel
+    let viewModel: PopupViewModel
     @State private var appearAnimationComplete = false
 
     var body: some View {
         VStack(spacing: 0) {
-            headerView
+            PopupHeaderView(viewModel: viewModel)
                 .opacity(appearAnimationComplete ? 1 : 0)
                 .offset(y: appearAnimationComplete ? 0 : -6)
 
             StyledDivider()
 
-            contentView
+            PopupContentView(viewModel: viewModel)
                 .opacity(appearAnimationComplete ? 1 : 0)
                 .offset(y: appearAnimationComplete ? 0 : 4)
 
             StyledDivider()
 
-            footerView
+            PopupFooterView(viewModel: viewModel)
                 .opacity(appearAnimationComplete ? 1 : 0)
                 .offset(y: appearAnimationComplete ? 0 : 6)
         }
@@ -144,12 +144,13 @@ struct PopupView: View {
             }
         }
     }
+}
 
-    // MARK: - Header
+private struct PopupHeaderView: View {
+    @ObservedObject var viewModel: PopupViewModel
 
-    private var headerView: some View {
+    var body: some View {
         HStack(spacing: DS.Spacing.md) {
-            // Style picker
             VStack(alignment: .leading, spacing: DS.Spacing.xs) {
                 Text("STYLE")
                     .font(DS.Typography.microFont)
@@ -161,7 +162,6 @@ struct PopupView: View {
 
             Spacer()
 
-            // Toggle original text
             IconButton(
                 icon: viewModel.showOriginal ? "eye.slash" : "eye",
                 action: {
@@ -218,10 +218,12 @@ struct PopupView: View {
         }
         .menuStyle(.borderlessButton)
     }
+}
 
-    // MARK: - Content
+private struct PopupContentView: View {
+    @ObservedObject var viewModel: PopupViewModel
 
-    private var contentView: some View {
+    var body: some View {
         VStack(spacing: DS.Spacing.md) {
             if viewModel.showOriginal {
                 originalTextSection
@@ -364,12 +366,13 @@ struct PopupView: View {
                 )
         )
     }
+}
 
-    // MARK: - Footer
+private struct PopupFooterView: View {
+    @ObservedObject var viewModel: PopupViewModel
 
-    private var footerView: some View {
+    var body: some View {
         HStack(spacing: DS.Spacing.md) {
-            // Cancel button
             Button {
                 viewModel.cancel()
             } label: {
@@ -384,7 +387,6 @@ struct PopupView: View {
 
             Spacer()
 
-            // Action buttons
             HStack(spacing: DS.Spacing.sm) {
                 CompactButton(
                     icon: "arrow.clockwise",
@@ -402,7 +404,6 @@ struct PopupView: View {
                     viewModel.copy()
                 }
 
-                // Primary action - Replace
                 PrimaryActionButton(
                     title: "Replace",
                     icon: "arrow.down.to.line",
