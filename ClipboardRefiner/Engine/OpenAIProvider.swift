@@ -687,6 +687,19 @@ final class LocalModelProvider: LLMProvider {
     private let modelPath: String
     private static let worker = LocalModelWorker()
 
+    private static func validatedModelPath(_ rawPath: String) -> Result<String, LLMError> {
+        let trimmedPath = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else {
+            return .failure(.localModelUnavailable("Model path is empty."))
+        }
+
+        guard FileManager.default.fileExists(atPath: trimmedPath) else {
+            return .failure(.localModelUnavailable("Model path does not exist: \(trimmedPath)"))
+        }
+
+        return .success(trimmedPath)
+    }
+
     init(modelName: String, modelPath: String) {
         self.modelName = modelName
         self.modelPath = modelPath
@@ -700,14 +713,12 @@ final class LocalModelProvider: LLMProvider {
     ) -> Cancellable {
         let cancellable = ProcessCancellable()
 
-        let trimmedPath = modelPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedPath.isEmpty else {
-            completion(.failure(.localModelUnavailable("Model path is empty.")))
-            return cancellable
-        }
-
-        guard FileManager.default.fileExists(atPath: trimmedPath) else {
-            completion(.failure(.localModelUnavailable("Model path does not exist: \(trimmedPath)")))
+        let trimmedPath: String
+        switch Self.validatedModelPath(modelPath) {
+        case .success(let path):
+            trimmedPath = path
+        case .failure(let error):
+            completion(.failure(error))
             return cancellable
         }
 
@@ -779,14 +790,12 @@ final class LocalModelProvider: LLMProvider {
         modelPath: String,
         completion: @escaping (Result<Void, LLMError>) -> Void
     ) {
-        let trimmedPath = modelPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedPath.isEmpty else {
-            completion(.failure(.localModelUnavailable("Model path is empty.")))
-            return
-        }
-
-        guard FileManager.default.fileExists(atPath: trimmedPath) else {
-            completion(.failure(.localModelUnavailable("Model path does not exist: \(trimmedPath)")))
+        let trimmedPath: String
+        switch Self.validatedModelPath(modelPath) {
+        case .success(let path):
+            trimmedPath = path
+        case .failure(let error):
+            completion(.failure(error))
             return
         }
 
