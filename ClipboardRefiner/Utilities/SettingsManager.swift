@@ -427,6 +427,11 @@ final class SettingsManager: ObservableObject {
         localModelPath(for: selectedModel)
     }
 
+    var selectedLocalModelName: String {
+        guard let first = localModelPaths.first?.modelName else { return "" }
+        return localModelName(for: selectedModel) ?? first
+    }
+
     var isSelectedLocalModelConfigured: Bool {
         selectedLocalModelPath != nil
     }

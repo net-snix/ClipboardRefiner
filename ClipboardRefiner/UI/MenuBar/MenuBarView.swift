@@ -347,17 +347,7 @@ struct MenuBarView: View {
     }
 
     private var resolvedLocalModelSelection: String {
-        guard let first = settings.localModelPaths.first?.modelName else {
-            return ""
-        }
-
-        if let matched = settings.localModelPaths.first(where: {
-            $0.modelName.caseInsensitiveCompare(settings.selectedModel) == .orderedSame
-        }) {
-            return matched.modelName
-        }
-
-        return first
+        settings.selectedLocalModelName
     }
 
     private func resolvedCloudModelSelection(for provider: LLMProviderType) -> String {
