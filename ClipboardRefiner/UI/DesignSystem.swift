@@ -186,20 +186,21 @@ struct ShimmerEffect: ViewModifier {
 
 // MARK: - Section Header
 
-struct SectionHeader: View {
+struct SectionHeader<Trailing: View>: View {
     let title: String
-    var trailing: AnyView? = nil
-    var icon: String? = nil
+    let icon: String?
+    let trailing: Trailing
 
-    init(_ title: String, icon: String? = nil) {
+    init(_ title: String, icon: String? = nil) where Trailing == EmptyView {
         self.title = title
         self.icon = icon
+        self.trailing = EmptyView()
     }
 
-    init(_ title: String, icon: String? = nil, @ViewBuilder trailing: () -> some View) {
+    init(_ title: String, icon: String? = nil, @ViewBuilder trailing: () -> Trailing) {
         self.title = title
         self.icon = icon
-        self.trailing = AnyView(trailing())
+        self.trailing = trailing()
     }
 
     var body: some View {
@@ -217,9 +218,7 @@ struct SectionHeader: View {
 
             Spacer()
 
-            if let trailing {
-                trailing
-            }
+            trailing
         }
     }
 }
