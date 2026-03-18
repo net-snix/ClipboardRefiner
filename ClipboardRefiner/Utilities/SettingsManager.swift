@@ -688,7 +688,14 @@ final class SettingsManager: ObservableObject {
         guard let decoded = try? decoder.decode([LocalModelPathEntry].self, from: data) else { return }
 
         localModelPaths = decoded
-            .filter(\.isValid)
+            .compactMap { entry in
+                let normalizedEntry = LocalModelPathEntry(
+                    id: entry.id,
+                    modelName: entry.modelName,
+                    path: entry.path
+                )
+                return normalizedEntry.isValid ? normalizedEntry : nil
+            }
             .sorted { $0.modelName.localizedCaseInsensitiveCompare($1.modelName) == .orderedAscending }
     }
 
