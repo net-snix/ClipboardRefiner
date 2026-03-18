@@ -108,7 +108,7 @@ struct ProviderSettingsView: View {
                     Spacer(minLength: 0)
 
                     if settings.selectedProvider == .local {
-                        Picker("Selected model", selection: localSettingsModelBinding) {
+                        Picker("Selected model", selection: $settings.selectedModel) {
                             ForEach(settings.localModelPaths) { entry in
                                 Text(entry.modelName).tag(entry.modelName)
                             }
@@ -116,7 +116,7 @@ struct ProviderSettingsView: View {
                         .labelsHidden()
                         .frame(maxWidth: 300)
                     } else {
-                        Text(resolvedLocalModelSelection)
+                        Text(settings.localModelPaths.first?.modelName ?? "")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -389,31 +389,6 @@ struct ProviderSettingsView: View {
             },
             set: { newValue in
                 settings.setModelDefault(newValue, for: provider)
-            }
-        )
-    }
-
-    private var resolvedLocalModelSelection: String {
-        guard let first = settings.localModelPaths.first?.modelName else {
-            return ""
-        }
-
-        if let matched = settings.localModelPaths.first(where: {
-            $0.modelName.caseInsensitiveCompare(settings.selectedModel) == .orderedSame
-        }) {
-            return matched.modelName
-        }
-
-        return first
-    }
-
-    private var localSettingsModelBinding: Binding<String> {
-        Binding(
-            get: {
-                resolvedLocalModelSelection
-            },
-            set: { newValue in
-                settings.selectedModel = newValue
             }
         )
     }
