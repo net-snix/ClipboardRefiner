@@ -235,7 +235,11 @@ struct MenuBarView: View {
     }
 
     private var controlsSection: some View {
-        GlassCard {
+        let openAIReasoningModelName = resolvedCloudModelSelection(for: .openai)
+        let showsOpenAIReasoningEffort = settings.selectedProvider == .openai &&
+            SettingsManager.isOpenAIReasoningModel(openAIReasoningModelName)
+
+        return GlassCard {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
                 SectionHeader("Provider", icon: "network")
 
@@ -429,15 +433,13 @@ struct MenuBarView: View {
         GlassCard {
             VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                 SectionHeader("Input", icon: "square.and.pencil") {
-                    AnyView(
-                        Picker("Style", selection: $settings.defaultStyle) {
-                            ForEach(RewriteStyle.userSelectableCases) { style in
-                                Text(style.displayName).tag(style)
-                            }
+                    Picker("Style", selection: $settings.defaultStyle) {
+                        ForEach(RewriteStyle.userSelectableCases) { style in
+                            Text(style.displayName).tag(style)
                         }
-                        .pickerStyle(.menu)
-                        .frame(width: 220)
-                    )
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 220)
                 }
 
                 TextBox(
@@ -460,12 +462,10 @@ struct MenuBarView: View {
         GlassCard {
             VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                 SectionHeader("Image Context", icon: "photo.on.rectangle") {
-                    AnyView(
-                        Tag(
-                            text: "\(attachments.count)/\(maxAttachments)",
-                            color: attachments.isEmpty ? DS.Colors.textTertiary : DS.Colors.accent,
-                            size: .small
-                        )
+                    Tag(
+                        text: "\(attachments.count)/\(maxAttachments)",
+                        color: attachments.isEmpty ? DS.Colors.textTertiary : DS.Colors.accent,
+                        size: .small
                     )
                 }
 
@@ -596,23 +596,21 @@ struct MenuBarView: View {
             GlassCard {
                 VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                     SectionHeader("Result", icon: "sparkles") {
-                        AnyView(
-                            HStack(spacing: DS.Spacing.sm) {
-                                if let runSummary {
-                                    Text(runSummary)
-                                        .font(DS.Typography.microFont)
-                                        .foregroundStyle(DS.Colors.textMuted)
-                                }
-
-                                CompactButton(icon: "doc.on.doc", label: "Copy", isDisabled: outputText.isEmpty) {
-                                    copyResult()
-                                }
-
-                                CompactButton(icon: "square.and.arrow.up", label: "Share", isDisabled: outputText.isEmpty) {
-                                    shareResult()
-                                }
+                        HStack(spacing: DS.Spacing.sm) {
+                            if let runSummary {
+                                Text(runSummary)
+                                    .font(DS.Typography.microFont)
+                                    .foregroundStyle(DS.Colors.textMuted)
                             }
-                        )
+
+                            CompactButton(icon: "doc.on.doc", label: "Copy", isDisabled: outputText.isEmpty) {
+                                copyResult()
+                            }
+
+                            CompactButton(icon: "square.and.arrow.up", label: "Share", isDisabled: outputText.isEmpty) {
+                                shareResult()
+                            }
+                        }
                     }
 
                     TextBox(
