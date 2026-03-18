@@ -137,15 +137,9 @@ final class AnthropicProvider: LLMProvider {
                         completion(.failure(error))
                     case .success:
                         guard !accumulatedOutput.isEmpty else {
-                            if let streamStopReason {
-                                switch streamStopReason {
-                                case "refusal":
-                                    completion(.failure(.serverError(400, "Anthropic returned refusal for this request.")))
-                                case "model_context_window_exceeded":
-                                    completion(.failure(.serverError(400, "Model context window exceeded. Shorten input or attachments.")))
-                                default:
-                                    completion(.failure(.invalidResponse))
-                                }
+                            if let streamStopReason,
+                               let mappedError = Self.error(forStopReason: streamStopReason) {
+                                completion(.failure(mappedError))
                             } else if let streamErrorMessage {
                                 completion(.failure(.streamingError(streamErrorMessage)))
                             } else {
@@ -198,15 +192,7 @@ final class AnthropicProvider: LLMProvider {
                 }
 
                 let stopReason = json["stop_reason"] as? String
-                let mappedError: LLMError
-                switch stopReason {
-                case "refusal":
-                    mappedError = .serverError(400, "Anthropic returned refusal for this request.")
-                case "model_context_window_exceeded":
-                    mappedError = .serverError(400, "Model context window exceeded. Shorten input or attachments.")
-                default:
-                    mappedError = .invalidResponse
-                }
+                let mappedError = Self.error(forStopReason: stopReason) ?? .invalidResponse
 
                 ProviderHTTP.deliverOnMain {
                     completion(.failure(mappedError))
@@ -257,6 +243,17 @@ final class AnthropicProvider: LLMProvider {
         }
 
         return nil
+    }
+
+    private static func error(forStopReason stopReason: String?) -> LLMError? {
+        switch stopReason {
+        case "refusal":
+            return .serverError(400, "Anthropic returned refusal for this request.")
+        case "model_context_window_exceeded":
+            return .serverError(400, "Model context window exceeded. Shorten input or attachments.")
+        default:
+            return nil
+        }
     }
 
     private static func extractStreamSnapshot(from json: [String: Any]) -> String? {
