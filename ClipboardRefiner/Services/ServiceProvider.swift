@@ -13,15 +13,9 @@ import Foundation
             return
         }
 
-        let resolvedAction: String
-        switch userData?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "explain":
-            resolvedAction = "explain"
-        default:
-            resolvedAction = "rewrite"
-        }
+        let resolvedAction = MenuBarAction(userData: userData)
 
-        AppLogger.shared.info("Clipboard Refiner service invoked (open window): \(resolvedAction)")
+        AppLogger.shared.info("Clipboard Refiner service invoked (open window): \(resolvedAction.rawValue)")
 
         DispatchQueue.main.async {
             guard let delegate = AppDelegate.shared else {
