@@ -243,6 +243,12 @@ struct TextBox: View {
     @FocusState private var isFocused: Bool
     @State private var isHovering = false
     @State private var lastReportedHeight: CGFloat = 0
+    @State private var lastMeasurementSignature: MeasurementSignature?
+
+    private struct MeasurementSignature: Equatable {
+        let text: String
+        let widthBucket: Int
+    }
 
     var body: some View {
         let effectiveHeight = self.effectiveHeight
@@ -319,8 +325,16 @@ struct TextBox: View {
 
     private func updateHeight(width: CGFloat) {
         guard width > 0 else { return }
-        let textWidth = max(1, width - DS.Spacing.lg * 2)
+
         let measureText = text.isEmpty ? " " : text
+        let signature = MeasurementSignature(
+            text: measureText,
+            widthBucket: Int((width * 2).rounded())
+        )
+        guard lastMeasurementSignature != signature else { return }
+        lastMeasurementSignature = signature
+
+        let textWidth = max(1, width - DS.Spacing.lg * 2)
         let newHeight = TextLayoutEstimator.bodyHeight(for: measureText, width: textWidth)
 
         // Avoid publishing the same measurement on every text tick.
