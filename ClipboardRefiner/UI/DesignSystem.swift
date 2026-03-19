@@ -320,7 +320,11 @@ struct TextBox: View {
         guard width > 0 else { return }
         let textWidth = max(1, width - DS.Spacing.lg * 2)
         let measureText = text.isEmpty ? " " : text
-        measuredHeight = TextLayoutEstimator.bodyHeight(for: measureText, width: textWidth)
+        let newHeight = TextLayoutEstimator.bodyHeight(for: measureText, width: textWidth)
+
+        // Avoid publishing the same measurement on every text tick.
+        guard abs(measuredHeight - newHeight) > 0.5 else { return }
+        measuredHeight = newHeight
     }
 
     private var effectiveHeight: CGFloat {
