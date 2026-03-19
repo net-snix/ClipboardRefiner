@@ -186,20 +186,21 @@ struct ShimmerEffect: ViewModifier {
 
 // MARK: - Section Header
 
-struct SectionHeader: View {
+struct SectionHeader<Trailing: View>: View {
     let title: String
-    var trailing: AnyView? = nil
-    var icon: String? = nil
+    private let trailing: Trailing?
+    private let icon: String?
 
-    init(_ title: String, icon: String? = nil) {
+    init(_ title: String, icon: String? = nil) where Trailing == EmptyView {
         self.title = title
         self.icon = icon
+        self.trailing = nil
     }
 
-    init(_ title: String, icon: String? = nil, @ViewBuilder trailing: () -> some View) {
+    init(_ title: String, icon: String? = nil, @ViewBuilder trailing: () -> Trailing) {
         self.title = title
         self.icon = icon
-        self.trailing = AnyView(trailing())
+        self.trailing = trailing()
     }
 
     var body: some View {
@@ -334,7 +335,11 @@ struct TextBox: View {
         lastMeasurementSignature = signature
 
         let textWidth = max(1, width - DS.Spacing.lg * 2)
-        measuredHeight = TextLayoutEstimator.bodyHeight(for: measureText, width: textWidth)
+        let newHeight = TextLayoutEstimator.bodyHeight(for: measureText, width: textWidth)
+
+        // Avoid publishing the same measurement on every text tick.
+        guard abs(measuredHeight - newHeight) > 0.5 else { return }
+        measuredHeight = newHeight
     }
 
     private var effectiveHeight: CGFloat {
