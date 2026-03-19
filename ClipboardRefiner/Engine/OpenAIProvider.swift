@@ -138,6 +138,18 @@ enum ProviderHTTP {
     static func serverMessage(from data: Data) -> String? {
         guard let json = decodeJSON(data) else { return nil }
 
+        return rawMessage(from: json)
+    }
+
+    static func streamErrorMessage(from json: [String: Any]) -> String? {
+        guard let message = rawMessage(from: json), !message.isEmpty else {
+            return nil
+        }
+
+        return message
+    }
+
+    private static func rawMessage(from json: [String: Any]) -> String? {
         if let error = json["error"] as? [String: Any],
            let message = error["message"] as? String {
             return message
@@ -284,7 +296,7 @@ final class OpenAIProvider: LLMProvider {
                         return
                     }
 
-                    if let streamError = Self.extractStreamError(from: json) {
+                    if let streamError = ProviderHTTP.streamErrorMessage(from: json) {
                         streamErrorMessage = streamError
                     }
 
@@ -363,20 +375,6 @@ final class OpenAIProvider: LLMProvider {
         }
 
         return cancellable
-    }
-
-    private static func extractStreamError(from json: [String: Any]) -> String? {
-        if let error = json["error"] as? [String: Any],
-           let message = error["message"] as? String,
-           !message.isEmpty {
-            return message
-        }
-
-        if let message = json["message"] as? String, !message.isEmpty {
-            return message
-        }
-
-        return nil
     }
 
     private static func extractStreamDelta(event: String?, from json: [String: Any]) -> String? {
@@ -536,7 +534,7 @@ final class XAIProvider: LLMProvider {
                         return
                     }
 
-                    if let streamError = Self.extractStreamError(from: json) {
+                    if let streamError = ProviderHTTP.streamErrorMessage(from: json) {
                         streamErrorMessage = streamError
                     }
 
@@ -631,20 +629,6 @@ final class XAIProvider: LLMProvider {
         if let parts = message["content"] as? [[String: Any]] {
             let combined = parts.compactMap { $0["text"] as? String }.joined()
             return combined.isEmpty ? nil : combined
-        }
-
-        return nil
-    }
-
-    private static func extractStreamError(from json: [String: Any]) -> String? {
-        if let error = json["error"] as? [String: Any],
-           let message = error["message"] as? String,
-           !message.isEmpty {
-            return message
-        }
-
-        if let message = json["message"] as? String, !message.isEmpty {
-            return message
         }
 
         return nil

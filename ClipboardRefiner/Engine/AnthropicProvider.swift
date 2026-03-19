@@ -101,7 +101,7 @@ final class AnthropicProvider: LLMProvider {
                         return
                     }
 
-                    if let streamError = Self.extractStreamError(from: json) {
+                    if let streamError = ProviderHTTP.streamErrorMessage(from: json) {
                         streamErrorMessage = streamError
                     }
                     if let stopReason = Self.extractStreamStopReason(from: json) {
@@ -212,20 +212,6 @@ final class AnthropicProvider: LLMProvider {
 
         if let textDelta = delta["delta"] as? String, !textDelta.isEmpty {
             return textDelta
-        }
-
-        return nil
-    }
-
-    private static func extractStreamError(from json: [String: Any]) -> String? {
-        if let error = json["error"] as? [String: Any],
-           let message = error["message"] as? String,
-           !message.isEmpty {
-            return message
-        }
-
-        if let message = json["message"] as? String, !message.isEmpty {
-            return message
         }
 
         return nil
