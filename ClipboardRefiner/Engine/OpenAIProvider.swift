@@ -135,6 +135,22 @@ enum ProviderHTTP {
         (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
+    static func nonEmptyString(_ value: Any?) -> String? {
+        guard let string = value as? String, !string.isEmpty else {
+            return nil
+        }
+        return string
+    }
+
+    static func errorMessage(from json: [String: Any]) -> String? {
+        if let error = json["error"] as? [String: Any],
+           let message = nonEmptyString(error["message"]) {
+            return message
+        }
+
+        return nonEmptyString(json["message"])
+    }
+
     static func serverMessage(from data: Data) -> String? {
         guard let json = decodeJSON(data) else { return nil }
 
@@ -366,17 +382,7 @@ final class OpenAIProvider: LLMProvider {
     }
 
     private static func extractStreamError(from json: [String: Any]) -> String? {
-        if let error = json["error"] as? [String: Any],
-           let message = error["message"] as? String,
-           !message.isEmpty {
-            return message
-        }
-
-        if let message = json["message"] as? String, !message.isEmpty {
-            return message
-        }
-
-        return nil
+        ProviderHTTP.errorMessage(from: json)
     }
 
     private static func extractStreamDelta(event: String?, from json: [String: Any]) -> String? {
@@ -637,17 +643,7 @@ final class XAIProvider: LLMProvider {
     }
 
     private static func extractStreamError(from json: [String: Any]) -> String? {
-        if let error = json["error"] as? [String: Any],
-           let message = error["message"] as? String,
-           !message.isEmpty {
-            return message
-        }
-
-        if let message = json["message"] as? String, !message.isEmpty {
-            return message
-        }
-
-        return nil
+        ProviderHTTP.errorMessage(from: json)
     }
 
     private static func extractStreamDelta(from json: [String: Any]) -> String? {
