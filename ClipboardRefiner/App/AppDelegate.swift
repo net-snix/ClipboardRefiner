@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Self.shared = self
     }
 
-    func openMenuBar(withPrefilledText text: String, action: String = "rewrite") {
+    func openMenuBar(withPrefilledText text: String, action: MenuBarAction = .rewrite) {
         let openAction = { [weak self] in
             guard let self else { return }
             self.openMainWindow()
@@ -31,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NotificationCenter.default.post(
                     name: .clipboardRefinerMenuPrefillText,
                     object: nil,
-                    userInfo: ["text": text, "action": action]
+                    userInfo: ["text": text, "action": action.rawValue]
                 )
             }
         }

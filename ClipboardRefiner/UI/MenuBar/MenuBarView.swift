@@ -117,7 +117,7 @@ struct MenuBarView: View {
             inputText = text
             outputText = ""
             errorText = nil
-            if let action = notification.userInfo?["action"] as? String, action == "explain" {
+            if MenuBarAction(userData: notification.userInfo?["action"] as? String) == .explain {
                 run(style: .explain)
             }
         }
