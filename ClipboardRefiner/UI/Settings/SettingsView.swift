@@ -614,6 +614,7 @@ struct BehaviorSettingsView: View {
     @State private var aggressivenessDraft: Double = SettingsManager.shared.aggressiveness
     @State private var isAggressivenessEditing = false
     @State private var promptDraft = ""
+    @State private var currentPromptText = ""
     @State private var promptCommitWorkItem: DispatchWorkItem?
 
     var body: some View {
@@ -709,30 +710,25 @@ struct BehaviorSettingsView: View {
             aggressivenessDraft = clampedAggressiveness(settings.aggressiveness)
             syncPromptDraft(for: promptEditorStyle)
         }
-        .onChange(of: settings.aggressiveness) { newValue in
+        .onChange(of: settings.aggressiveness) { _, newValue in
             guard !isAggressivenessEditing else { return }
             aggressivenessDraft = clampedAggressiveness(newValue)
         }
-        .onChange(of: promptEditorStyle) { newStyle in
+        .onChange(of: settings.systemPromptOverrides) { _, _ in
+            syncPromptDraft(for: promptEditorStyle)
+        }
+        .onChange(of: promptEditorStyle) { _, newStyle in
             syncPromptDraft(for: newStyle)
         }
-        .onChange(of: promptDraft) { newValue in
-            guard newValue != selectedSystemPromptText else { return }
+        .onChange(of: promptDraft) { _, newValue in
+            guard newValue != currentPromptText else { return }
             schedulePromptCommit(for: promptEditorStyle, text: newValue)
-        }
-        .onChange(of: selectedSystemPromptText) { newValue in
-            guard newValue != promptDraft else { return }
-            promptDraft = newValue
         }
     }
 
     private var aggressivenessValueLabel: String {
         let clamped = clampedAggressiveness(aggressivenessDraft)
         return "\(Int(round(clamped * 100)))%"
-    }
-
-    private var selectedSystemPromptText: String {
-        systemPromptText(for: promptEditorStyle)
     }
 
     private func clampedAggressiveness(_ value: Double) -> Double {
@@ -756,14 +752,16 @@ struct BehaviorSettingsView: View {
     }
 
     private func syncPromptDraft(for style: RewriteStyle) {
-        promptDraft = systemPromptText(for: style)
+        let promptText = systemPromptText(for: style)
+        currentPromptText = promptText
+        promptDraft = promptText
     }
 
     private func schedulePromptCommit(for style: RewriteStyle, text: String) {
         cancelPendingPromptCommit()
 
         let workItem = DispatchWorkItem {
-            if text != systemPromptText(for: style) {
+            if text != currentPromptText {
                 settings.setSystemPromptOverride(text, for: style)
             }
             promptCommitWorkItem = nil
